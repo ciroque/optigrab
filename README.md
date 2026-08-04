@@ -13,7 +13,8 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
   - **Windows extract:** `ffmpeg` (default)
   - **Encode:** `ffmpeg` + libmp3lame (tags included)
   - **TOC:** libcdio (Linux), Windows SPTI (Windows)
-- Session focus (selected drive), manual artist/album overrides
+- Session focus (selected drive); **auto-selects when only one drive is present**
+- Manual artist/album overrides
 - Filenames: `<out>/<Artist> - <Album>/<NN> Title.mp3`
 
 ## Requirements

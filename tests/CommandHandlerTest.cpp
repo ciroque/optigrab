@@ -51,12 +51,13 @@ TEST_CASE("select drive by index", "[cli]") {
     REQUIRE(ctx.session.selectedDrive().path == "/dev/sr1");
 }
 
-TEST_CASE("list track requires selection", "[cli]") {
+TEST_CASE("list track requires selection when multiple drives", "[cli]") {
     std::ostringstream out, err;
-    auto ctx = makeTestContext(out, err);
+    auto ctx = makeTestContext(out, err);  // two fake drives
     auto handler = makeDefaultCommandHandler();
     handler.execute(ctx, "list track");
     REQUIRE(err.str().find("No drive selected") != std::string::npos);
+    REQUIRE(err.str().find("Multiple drives") != std::string::npos);
 }
 
 TEST_CASE("set artist and album", "[cli]") {

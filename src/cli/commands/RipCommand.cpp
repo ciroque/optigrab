@@ -1,4 +1,5 @@
 #include "optigrab/cli/Command.hpp"
+#include "optigrab/cli/DriveSelection.hpp"
 
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/domain/TrackRange.hpp"
@@ -24,6 +25,7 @@ public:
             spec << tokens[i];
         }
 
+        ensureDriveSelected(ctx);
         if (!ctx.session.hasDisc()) {
             ctx.ripper->loadDisc(ctx.session, [&](const std::string& m) { ctx.err << m << "\n"; });
         }

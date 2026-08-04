@@ -1,4 +1,5 @@
 #include "optigrab/cli/Command.hpp"
+#include "optigrab/cli/DriveSelection.hpp"
 
 #include "optigrab/domain/Errors.hpp"
 
@@ -30,9 +31,7 @@ public:
 class ListTrackCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>&) override {
-        if (!ctx.session.hasSelectedDrive()) {
-            throw SessionError("No drive selected. Use: select drive <index|path>");
-        }
+        ensureDriveSelected(ctx);
         ctx.ripper->loadDisc(ctx.session, [&](const std::string& m) { ctx.err << m << "\n"; });
         const auto& disc = ctx.session.disc();
         if (disc.tracks.empty()) {

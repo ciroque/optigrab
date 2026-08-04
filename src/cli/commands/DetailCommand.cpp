@@ -1,4 +1,5 @@
 #include "optigrab/cli/Command.hpp"
+#include "optigrab/cli/DriveSelection.hpp"
 
 #include "optigrab/domain/Errors.hpp"
 
@@ -10,9 +11,7 @@ namespace {
 class DetailDriveCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>&) override {
-        if (!ctx.session.hasSelectedDrive()) {
-            throw SessionError("No drive selected. Use: select drive <index|path>");
-        }
+        ensureDriveSelected(ctx);
         const auto& d = ctx.session.selectedDrive();
         ctx.out << "Selected drive\n";
         ctx.out << "  Index : " << d.index << "\n";
@@ -29,9 +28,7 @@ public:
 class DetailDiscCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>&) override {
-        if (!ctx.session.hasSelectedDrive()) {
-            throw SessionError("No drive selected. Use: select drive <index|path>");
-        }
+        ensureDriveSelected(ctx);
         if (!ctx.session.hasDisc()) {
             ctx.ripper->loadDisc(ctx.session, [&](const std::string& m) { ctx.err << m << "\n"; });
         }

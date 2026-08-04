@@ -1,5 +1,6 @@
 #include "optigrab/app/Application.hpp"
 
+#include "optigrab/cli/DriveSelection.hpp"
 #include "optigrab/cli/LineReader.hpp"
 
 #include <iostream>
@@ -16,6 +17,7 @@ void Application::run() {
 #define OPTIGRAB_VERSION_STRING "dev"
 #endif
     ctx_->out << "optigrab " << OPTIGRAB_VERSION_STRING << " — type 'help', 'exit' to quit\n";
+    tryAutoSelectSingleDrive(*ctx_, true);
 
     LineReader reader(history_, ctx_->out, std::cin);
     constexpr const char* kPrompt = "OPTIGRAB> ";
