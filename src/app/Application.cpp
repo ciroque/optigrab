@@ -24,6 +24,12 @@ void Application::applyLaunchArgs(const LaunchArgs& args) {
     if (args.album) {
         ctx_->session.setAlbum(*args.album);
     }
+    if (args.coverPath) {
+        ctx_->session.setCoverPath(*args.coverPath);
+    }
+    if (args.fetchCoverArt) {
+        ctx_->session.setFetchCoverArt(*args.fetchCoverArt);
+    }
     if (args.quality) {
         ctx_->session.setQuality(*args.quality);
     }

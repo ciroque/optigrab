@@ -55,6 +55,8 @@ std::string usageText() {
         << "  --out <dir>            Output directory\n"
         << "  --artist <name>        Album artist override\n"
         << "  --album <name>         Album title override\n"
+        << "  --cover <image>        Local cover image (skip network if set)\n"
+        << "  --no-cover             Disable cover art fetch/embed\n"
         << "  --quality <preset>     V0 | V2 | 192 | 256 | 320\n";
 #ifdef _WIN32
     oss << "  --extractor <name>     ffmpeg\n";
@@ -110,6 +112,16 @@ LaunchArgs parseLaunchArgs(const std::vector<std::string>& argv) {
         }
         if (a == "--album") {
             out.album = requireValue(argv, i, a);
+            ++i;
+            continue;
+        }
+        if (a == "--cover") {
+            out.coverPath = requireValue(argv, i, a);
+            ++i;
+            continue;
+        }
+        if (a == "--no-cover") {
+            out.fetchCoverArt = false;
             ++i;
             continue;
         }

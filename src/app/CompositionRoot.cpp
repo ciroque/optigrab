@@ -1,5 +1,9 @@
 #include "optigrab/app/CompositionRoot.hpp"
 
+#include "optigrab/adapters/cover/CompositeCoverArtProvider.hpp"
+#include "optigrab/adapters/cover/LocalCoverArtProvider.hpp"
+#include "optigrab/adapters/cover/MusicBrainzCoverArtProvider.hpp"
+#include "optigrab/adapters/ffmpeg/FfmpegCoverArtApplier.hpp"
 #include "optigrab/adapters/ffmpeg/FfmpegEncoder.hpp"
 #include "optigrab/adapters/ffmpeg/FfmpegExtractor.hpp"
 #include "optigrab/adapters/manual/ManualMetadataProvider.hpp"
@@ -49,7 +53,7 @@ std::shared_ptr<AudioEncoder> AppServices::makeEncoder(EncoderKind kind) {
 
 std::shared_ptr<RipService> AppServices::makeRipper(ExtractorKind extractor, EncoderKind encoder) {
     return std::make_shared<RipService>(toc, makeExtractor(extractor), makeEncoder(encoder),
-                                        metadata);
+                                        metadata, cover, coverApplier);
 }
 
 AppServices makeDefaultServices() {
@@ -62,6 +66,12 @@ AppServices makeDefaultServices() {
     s.toc = std::make_shared<LibcdioTocReader>();
 #endif
     s.metadata = std::make_shared<ManualMetadataProvider>();
+
+    std::vector<std::shared_ptr<CoverArtProvider>> coverProviders;
+    coverProviders.push_back(std::make_shared<LocalCoverArtProvider>());
+    coverProviders.push_back(std::make_shared<MusicBrainzCoverArtProvider>());
+    s.cover = std::make_shared<CompositeCoverArtProvider>(std::move(coverProviders));
+    s.coverApplier = std::make_shared<FfmpegCoverArtApplier>();
     return s;
 }
 

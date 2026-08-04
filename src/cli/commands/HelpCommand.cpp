@@ -27,6 +27,8 @@ public:
   set quality <preset>    V0 | V2 | 192 | 256 | 320
   set artist <name>       Album artist (tags + folder naming)
   set album <name>        Album name (tags + folder naming)
+  set cover <path>|none   Local cover image (preferred over network)
+  set coverart on|off     Enable/disable cover download+embed
 )";
 #ifdef _WIN32
         ctx.out << "  set extractor <name>    ffmpeg\n";

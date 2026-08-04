@@ -19,6 +19,8 @@ std::unique_ptr<Command> makeSetArtistCommand();
 std::unique_ptr<Command> makeSetAlbumCommand();
 std::unique_ptr<Command> makeSetExtractorCommand();
 std::unique_ptr<Command> makeSetEncoderCommand();
+std::unique_ptr<Command> makeSetCoverCommand();
+std::unique_ptr<Command> makeSetCoverArtCommand();
 std::unique_ptr<Command> makeRipTrackCommand();
 std::unique_ptr<Command> makeHelpCommand();
 std::unique_ptr<Command> makeExitCommand();
@@ -123,6 +125,8 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeSetAlbumCommand());
     h.addCommand(makeSetExtractorCommand());
     h.addCommand(makeSetEncoderCommand());
+    h.addCommand(makeSetCoverCommand());
+    h.addCommand(makeSetCoverArtCommand());
     h.addCommand(makeRipTrackCommand());
     h.addCommand(makeHelpCommand());
     h.addCommand(makeExitCommand());

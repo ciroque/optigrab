@@ -31,6 +31,15 @@ public:
     [[nodiscard]] const std::optional<std::string>& artist() const;
     [[nodiscard]] const std::optional<std::string>& album() const;
 
+    // Local cover image path (optional). Tried before network lookup.
+    void setCoverPath(std::string path);
+    void clearCoverPath();
+    [[nodiscard]] const std::optional<std::string>& coverPath() const;
+
+    // When false, skip cover download/embed entirely.
+    void setFetchCoverArt(bool enabled);
+    [[nodiscard]] bool fetchCoverArt() const;
+
     void setExtractor(ExtractorKind kind);
     void setEncoder(EncoderKind kind);
     [[nodiscard]] ExtractorKind extractor() const;
@@ -46,6 +55,8 @@ private:
     QualityPreset quality_{QualityPreset::V0};
     std::optional<std::string> artist_;
     std::optional<std::string> album_;
+    std::optional<std::string> coverPath_;
+    bool fetchCoverArt_{true};
     ExtractorKind extractor_{defaultExtractor()};
     EncoderKind encoder_{EncoderKind::Ffmpeg};
     bool ripInProgress_{false};

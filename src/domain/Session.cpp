@@ -52,6 +52,16 @@ const std::optional<std::string>& Session::artist() const { return artist_; }
 
 const std::optional<std::string>& Session::album() const { return album_; }
 
+void Session::setCoverPath(std::string path) { coverPath_ = std::move(path); }
+
+void Session::clearCoverPath() { coverPath_.reset(); }
+
+const std::optional<std::string>& Session::coverPath() const { return coverPath_; }
+
+void Session::setFetchCoverArt(bool enabled) { fetchCoverArt_ = enabled; }
+
+bool Session::fetchCoverArt() const { return fetchCoverArt_; }
+
 void Session::setExtractor(ExtractorKind kind) { extractor_ = kind; }
 
 void Session::setEncoder(EncoderKind kind) { encoder_ = kind; }

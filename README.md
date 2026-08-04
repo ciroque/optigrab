@@ -19,6 +19,8 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 - Session focus (selected drive); **auto-selects when only one drive is present**
 - Manual artist/album overrides
 - Filenames: `<out>/<Artist> - <Album>/<NN> Title.mp3`
+- **Cover art (serial):** download first → rip all tracks → write `cover.jpg` + embed into each MP3  
+  (local `set cover` / `--cover` preferred; else MusicBrainz Disc ID → Cover Art Archive via `curl`)
 
 ## Requirements
 
@@ -90,6 +92,8 @@ optigrab --drive 0 \
 | `--drive <n\|path>` | Select drive |
 | `--out <dir>` | Output directory |
 | `--artist` / `--album` | Tag + folder overrides |
+| `--cover <image>` | Local cover image (used instead of network when set) |
+| `--no-cover` | Skip cover download/embed |
 | `--quality` | `V0` `V2` `192` `256` `320` |
 | `--extractor` | Platform-dependent (`ffmpeg`, …) |
 | `--encoder` | `ffmpeg` |
@@ -147,25 +151,30 @@ Track/file names use:
 
 No MusicBrainz lookup yet.
 
-## Cover art & richer tags (what “feature 10” looks like)
+## Cover art
 
-Not implemented yet — sketch for when we do it:
+Serial pipeline (no worker threads):
 
-| Piece | Approach |
-|-------|----------|
-| **Data** | Extend `Tags` with optional `year`, `genre`, `discNumber`/`discTotal`, and `coverArtPath` or in-memory JPEG/PNG bytes |
-| **Source** | MusicBrainz / Cover Art Archive after disc-id lookup, or `set cover <file.jpg>`, or user drop-in `cover.jpg` next to output |
-| **Write** | ffmpeg already accepts `-metadata`; for **APIC embedded art**, either a second pass with a tagger (e.g. TagLib) or ffmpeg’s video-attached-picture pattern (`-i cover.jpg -map 0 -map 1 -c copy -c:v:1 mjpeg …`) |
-| **Port** | Keep `MetadataProvider` for text; add optional `CoverArtProvider` so network/file sources stay swappable |
-| **UX** | `set cover …`, auto-fetch flag later; never block a rip if art fails |
+1. **Download** cover (fail soft) — local path first, else MusicBrainz disc ID → Cover Art Archive (`curl`)
+2. **Rip** all selected tracks (extract → encode)
+3. If cover exists: write **`cover.jpg`/`cover.png`** once in the album folder, then **embed** into each successful MP3 (ffmpeg attached picture)
 
-Keep it thin: tags that players care about, not a full library manager.
+```text
+set cover ~/Pictures/front.jpg    # optional local override
+set coverart off                  # disable entirely
+# or: optigrab --cover art.jpg rip track all
+# or: optigrab --no-cover rip track all
+```
+
+Runtime: `curl` and `ffmpeg` on `PATH` for network cover + embed. Missing art never fails the rip.
+
+**Not yet:** year/genre tags, disc number — still on the roadmap under richer metadata.
 
 ## Roadmap
 
 Planned / nice-to-have (not scheduled):
 
-1. **MusicBrainz (or similar) metadata lookup** — disc ID → titles/artist/album  
+1. **MusicBrainz (or similar) metadata lookup** — disc ID → titles/artist/album (cover already uses disc ID for CAA)  
 2. ~~Clearer device errors~~ — **done**  
 3. ~~Progress while ripping~~ — **done**  
 4. **Cancel / interrupt a rip cleanly** (Ctrl-C mid-job, keep finished tracks)  
@@ -174,7 +183,7 @@ Planned / nice-to-have (not scheduled):
 7. **Gap / pregap handling** (optional, explicit)  
 8. **Light verify after rip** (length/sanity; not full AccurateRip theater)  
 9. ~~Scriptable one-shot mode~~ — **done**  
-10. **Cover art + richer tags** — see section above  
+10. ~~Cover art (sidecar + embed)~~ — **done** (richer text tags still open)  
 11. Eject / close tray verbs  
 12. Multi-disc disc-number tags  
 13. Pipeline extract ‖ encode  

@@ -17,6 +17,8 @@ struct LaunchArgs {
     std::optional<std::string> outDir;
     std::optional<std::string> artist;
     std::optional<std::string> album;
+    std::optional<std::string> coverPath;
+    std::optional<bool> fetchCoverArt;
     std::optional<QualityPreset> quality;
     std::optional<ExtractorKind> extractor;
     std::optional<EncoderKind> encoder;

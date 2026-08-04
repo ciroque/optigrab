@@ -134,6 +134,46 @@ public:
     [[nodiscard]] std::string name() const override { return "set encoder"; }
 };
 
+class SetCoverCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError("Usage: set cover <image-path>|none");
+        }
+        const auto path = joinFrom(tokens, 2);
+        if (path == "none" || path == "off" || path == "clear") {
+            ctx.session.clearCoverPath();
+            ctx.out << "Local cover path cleared.\n";
+            return;
+        }
+        ctx.session.setCoverPath(path);
+        ctx.out << "Cover: " << path << "\n";
+    }
+    [[nodiscard]] std::string name() const override { return "set cover"; }
+};
+
+class SetCoverArtCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError("Usage: set coverart <on|off>");
+        }
+        const auto& v = tokens[2];
+        if (v == "on" || v == "true" || v == "1" || v == "yes") {
+            ctx.session.setFetchCoverArt(true);
+            ctx.out << "Cover art fetch/embed: on\n";
+            return;
+        }
+        if (v == "off" || v == "false" || v == "0" || v == "no") {
+            ctx.session.setFetchCoverArt(false);
+            ctx.out << "Cover art fetch/embed: off\n";
+            return;
+        }
+        throw ParseError("Usage: set coverart <on|off>");
+    }
+    [[nodiscard]] std::string name() const override { return "set coverart"; }
+};
+
 }  // namespace
 
 std::unique_ptr<Command> makeSetOutCommand() { return std::make_unique<SetOutCommand>(); }
@@ -144,5 +184,7 @@ std::unique_ptr<Command> makeSetExtractorCommand() {
     return std::make_unique<SetExtractorCommand>();
 }
 std::unique_ptr<Command> makeSetEncoderCommand() { return std::make_unique<SetEncoderCommand>(); }
+std::unique_ptr<Command> makeSetCoverCommand() { return std::make_unique<SetCoverCommand>(); }
+std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetCoverArtCommand>(); }
 
 }  // namespace optigrab
