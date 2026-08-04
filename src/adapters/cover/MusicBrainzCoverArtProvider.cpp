@@ -3,9 +3,12 @@
 #include "optigrab/domain/DiscId.hpp"
 #include "optigrab/util/Process.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <regex>
+#include <vector>
 
 namespace optigrab {
 namespace {
@@ -56,26 +59,11 @@ std::string trimSnippet(std::string s, std::size_t max = 240) {
     return s;
 }
 
-std::optional<std::string> firstReleaseId(const std::string& json) {
-    const auto releasesPos = json.find("\"releases\"");
-    const std::string scope =
-        releasesPos == std::string::npos ? json : json.substr(releasesPos);
-    static const std::regex re(
-        "\"id\"\\s*:\\s*\"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-        "[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\"");
-    std::smatch m;
-    if (std::regex_search(scope, m, re) && m.size() >= 2) {
-        return m[1].str();
-    }
-    return std::nullopt;
-}
-
 bool looksLikeErrorJson(const std::string& json) {
     return json.find("\"error\"") != std::string::npos ||
            json.find("Not Found") != std::string::npos;
 }
 
-// Extract "503" from messages like: curl: (22) The requested URL returned error: 503
 std::optional<int> httpStatusFromCurlOutput(const std::string& output) {
     static const std::regex re(R"(returned error:\s*(\d{3}))");
     std::smatch m;
@@ -115,27 +103,294 @@ void logCurlFailure(Logger* log, const std::string& step, const std::string& url
     if (!r.output.empty()) {
         log->debug("[mb]   curl: " + trimSnippet(r.output));
     }
-    if (!r.fileOk) {
-        log->debug("[mb]   no usable download file (size " + std::to_string(r.fileSize) + ")");
-    }
 
     if (http) {
         if (*http == 404 || *http == 400) {
-            log->info("[mb] hint: resource not found — disc/release may be unknown to the service");
+            log->info("[mb] hint: no cover (or resource) at this URL");
         } else if (*http == 503 || *http == 502 || *http == 504) {
-            log->info("[mb] hint: service temporarily unavailable — retry later (not a disc-ID problem)");
+            log->info("[mb] hint: service temporarily unavailable — retry later");
         } else if (*http == 429) {
-            log->info("[mb] hint: rate limited by the service — wait and retry");
+            log->info("[mb] hint: rate limited — wait and retry");
         } else if (*http >= 500) {
             log->info("[mb] hint: remote server error — retry later");
         }
-    } else if (r.exitCode == 28) {
-        log->info("[mb] hint: network timeout — check connectivity and retry");
-    } else if (r.exitCode == 6 || r.exitCode == 7) {
-        log->info("[mb] hint: network/DNS problem — check connectivity");
-    } else if (r.exitCode == 127) {
-        log->info("[mb] hint: install curl and ensure it is on PATH");
     }
+}
+
+bool isUuid(const std::string& s) {
+    static const std::regex re(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+    return std::regex_match(s, re);
+}
+
+// Slice one top-level JSON object starting at '{' (string-aware brace match).
+std::optional<std::string> sliceObject(const std::string& s, std::size_t& i) {
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) {
+        ++i;
+    }
+    if (i >= s.size() || s[i] != '{') {
+        return std::nullopt;
+    }
+    const std::size_t start = i;
+    int depth = 0;
+    bool inString = false;
+    bool escape = false;
+    for (; i < s.size(); ++i) {
+        const char c = s[i];
+        if (inString) {
+            if (escape) {
+                escape = false;
+            } else if (c == '\\') {
+                escape = true;
+            } else if (c == '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (c == '"') {
+            inString = true;
+            continue;
+        }
+        if (c == '{') {
+            ++depth;
+        } else if (c == '}') {
+            --depth;
+            if (depth == 0) {
+                ++i;
+                return s.substr(start, i - start);
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+// Find top-level JSON string value for key in object text "{...}".
+std::optional<std::string> topLevelStringField(const std::string& obj, const std::string& key) {
+    // Match "key" : "value" only when brace depth is 1 (inside this object, not nested).
+    const std::string needle = "\"" + key + "\"";
+    int depth = 0;
+    bool inString = false;
+    bool escape = false;
+    for (std::size_t i = 0; i < obj.size(); ++i) {
+        const char c = obj[i];
+        if (inString) {
+            if (escape) {
+                escape = false;
+            } else if (c == '\\') {
+                escape = true;
+            } else if (c == '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (c == '"') {
+            if (depth == 1 && obj.compare(i, needle.size(), needle) == 0) {
+                std::size_t j = i + needle.size();
+                while (j < obj.size() && std::isspace(static_cast<unsigned char>(obj[j]))) {
+                    ++j;
+                }
+                if (j >= obj.size() || obj[j] != ':') {
+                    inString = true;  // treat as normal string start
+                    continue;
+                }
+                ++j;
+                while (j < obj.size() && std::isspace(static_cast<unsigned char>(obj[j]))) {
+                    ++j;
+                }
+                if (j >= obj.size() || obj[j] != '"') {
+                    continue;
+                }
+                ++j;
+                std::string val;
+                while (j < obj.size()) {
+                    const char vc = obj[j++];
+                    if (vc == '\\') {
+                        if (j < obj.size()) {
+                            val.push_back(obj[j++]);
+                        }
+                        continue;
+                    }
+                    if (vc == '"') {
+                        return val;
+                    }
+                    val.push_back(vc);
+                }
+                return std::nullopt;
+            }
+            inString = true;
+            continue;
+        }
+        if (c == '{') {
+            ++depth;
+        } else if (c == '}') {
+            --depth;
+        }
+    }
+    return std::nullopt;
+}
+
+bool topLevelCaaFrontTrue(const std::string& obj) {
+    // Locate top-level "cover-art-archive" object, then look for "front": true inside it.
+    const std::string key = "\"cover-art-archive\"";
+    int depth = 0;
+    bool inString = false;
+    bool escape = false;
+    for (std::size_t i = 0; i < obj.size(); ++i) {
+        const char c = obj[i];
+        if (inString) {
+            if (escape) {
+                escape = false;
+            } else if (c == '\\') {
+                escape = true;
+            } else if (c == '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (c == '"') {
+            if (depth == 1 && obj.compare(i, key.size(), key) == 0) {
+                std::size_t j = i + key.size();
+                while (j < obj.size() && std::isspace(static_cast<unsigned char>(obj[j]))) {
+                    ++j;
+                }
+                if (j >= obj.size() || obj[j] != ':') {
+                    inString = true;
+                    continue;
+                }
+                ++j;
+                while (j < obj.size() && std::isspace(static_cast<unsigned char>(obj[j]))) {
+                    ++j;
+                }
+                if (j >= obj.size() || obj[j] != '{') {
+                    continue;
+                }
+                auto caa = sliceObject(obj, j);
+                if (!caa) {
+                    return false;
+                }
+                static const std::regex frontRe(R"("front"\s*:\s*true)");
+                return std::regex_search(*caa, frontRe);
+            }
+            inString = true;
+            continue;
+        }
+        if (c == '{') {
+            ++depth;
+        } else if (c == '}') {
+            --depth;
+        }
+    }
+    return false;
+}
+
+struct ReleaseCandidate {
+    std::string id;
+    bool hasFront{false};
+};
+
+std::vector<ReleaseCandidate> extractReleaseCandidates(const std::string& json) {
+    std::vector<ReleaseCandidate> out;
+    const auto pos = json.find("\"releases\"");
+    if (pos == std::string::npos) {
+        return out;
+    }
+    std::size_t i = json.find('[', pos);
+    if (i == std::string::npos) {
+        return out;
+    }
+    ++i;
+
+    while (i < json.size()) {
+        while (i < json.size() &&
+               (std::isspace(static_cast<unsigned char>(json[i])) || json[i] == ',')) {
+            ++i;
+        }
+        if (i >= json.size() || json[i] == ']') {
+            break;
+        }
+        auto obj = sliceObject(json, i);
+        if (!obj) {
+            break;
+        }
+        auto id = topLevelStringField(*obj, "id");
+        if (!id || !isUuid(*id)) {
+            continue;
+        }
+        ReleaseCandidate c;
+        c.id = *id;
+        c.hasFront = topLevelCaaFrontTrue(*obj);
+        out.push_back(std::move(c));
+    }
+
+    std::stable_sort(out.begin(), out.end(),
+                     [](const ReleaseCandidate& a, const ReleaseCandidate& b) {
+                         return a.hasFront > b.hasFront;
+                     });
+    return out;
+}
+
+std::optional<CoverArt> loadCoverFile(const std::filesystem::path& imgPath,
+                                      const std::string& source, Logger* log) {
+    CoverArt art;
+    {
+        std::ifstream in(imgPath, std::ios::binary);
+        art.bytes.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    if (art.bytes.empty()) {
+        if (log) {
+            log->warn("[mb] downloaded cover file was empty");
+        }
+        return std::nullopt;
+    }
+    if (!isJpeg(art.bytes) && !isPng(art.bytes)) {
+        if (log) {
+            log->warn("[mb] downloaded bytes are not JPEG/PNG (size " +
+                      std::to_string(art.bytes.size()) + "); rejecting");
+        }
+        return std::nullopt;
+    }
+    art.mimeType = guessMime(art.bytes);
+    art.source = source;
+    if (log) {
+        log->info("[mb] cover OK: " + art.mimeType + ", " + std::to_string(art.bytes.size()) +
+                  " bytes");
+    }
+    return art;
+}
+
+std::optional<CoverArt> fetchCaaFront(const std::string& curlBin, const std::string& releaseId,
+                                      Logger* log) {
+    const auto imgPath =
+        std::filesystem::temp_directory_path() / ("optigrab-cover-" + releaseId + ".img");
+    std::error_code ec;
+
+    const std::string caa500 = "https://coverartarchive.org/release/" + releaseId + "/front-500";
+    if (log) {
+        log->info("[mb] fetching CAA front-500 for release " + releaseId);
+        log->debug("[mb] GET " + caa500);
+    }
+    auto caa = curlToFile(curlBin, caa500, imgPath);
+    if (caa.exitCode == 0 && caa.fileOk) {
+        auto art = loadCoverFile(imgPath, "coverartarchive:" + releaseId, log);
+        std::filesystem::remove(imgPath, ec);
+        return art;
+    }
+    logCurlFailure(log, "CAA front-500", caa500, caa);
+
+    const std::string caaFront = "https://coverartarchive.org/release/" + releaseId + "/front";
+    if (log) {
+        log->info("[mb] trying CAA full front for release " + releaseId);
+        log->debug("[mb] GET " + caaFront);
+    }
+    caa = curlToFile(curlBin, caaFront, imgPath);
+    if (caa.exitCode == 0 && caa.fileOk) {
+        auto art = loadCoverFile(imgPath, "coverartarchive:" + releaseId, log);
+        std::filesystem::remove(imgPath, ec);
+        return art;
+    }
+    logCurlFailure(log, "CAA front", caaFront, caa);
+    std::filesystem::remove(imgPath, ec);
+    return std::nullopt;
 }
 
 }  // namespace
@@ -196,87 +451,37 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         }
         return std::nullopt;
     }
-    if (json.find("\"releases\"") == std::string::npos) {
+
+    auto candidates = extractReleaseCandidates(json);
+    if (candidates.empty()) {
         if (log) {
-            log->warn("[mb] JSON has no \"releases\" field — disc not linked to a release");
+            log->warn("[mb] could not parse any release MBID from MusicBrainz JSON");
             log->debug("[mb] snippet: " + trimSnippet(json));
         }
         return std::nullopt;
     }
 
-    const auto releaseId = firstReleaseId(json);
-    if (!releaseId) {
-        if (log) {
-            log->warn("[mb] could not parse a release UUID from MusicBrainz JSON");
-            log->debug("[mb] snippet: " + trimSnippet(json));
-        }
-        return std::nullopt;
-    }
     if (log) {
-        log->info("[mb] release MBID: " + *releaseId);
+        log->info("[mb] found " + std::to_string(candidates.size()) + " linked release(s)");
+        for (const auto& c : candidates) {
+            log->debug("[mb]   release " + c.id +
+                       (c.hasFront ? " (front cover advertised)" : " (no front flag)"));
+        }
     }
 
-    const auto imgPath =
-        std::filesystem::temp_directory_path() / ("optigrab-cover-" + *releaseId + ".img");
-    const std::string caa500 = "https://coverartarchive.org/release/" + *releaseId + "/front-500";
+    for (const auto& c : candidates) {
+        if (log) {
+            log->info("[mb] trying release MBID: " + c.id);
+        }
+        if (auto art = fetchCaaFront(curl_, c.id, log)) {
+            return art;
+        }
+    }
+
     if (log) {
-        log->info("[mb] fetching Cover Art Archive front-500 ...");
-        log->debug("[mb] GET " + caa500);
+        log->warn("[mb] no Cover Art Archive front image for any linked release");
     }
-    auto caa = curlToFile(curl_, caa500, imgPath);
-    if (caa.exitCode != 0 || !caa.fileOk) {
-        logCurlFailure(log, "CAA front-500", caa500, caa);
-        if (log) {
-            log->info("[mb] trying CAA full front ...");
-        }
-        const std::string caaFront =
-            "https://coverartarchive.org/release/" + *releaseId + "/front";
-        caa = curlToFile(curl_, caaFront, imgPath);
-        if (caa.exitCode != 0 || !caa.fileOk) {
-            logCurlFailure(log, "CAA front", caaFront, caa);
-            const auto st = httpStatusFromCurlOutput(caa.output);
-            if (st && *st == 404 && log) {
-                log->info("[mb] hint: release exists but Cover Art Archive has no front image");
-            }
-            std::filesystem::remove(imgPath, ec);
-            return std::nullopt;
-        }
-    }
-
-    CoverArt art;
-    {
-        std::ifstream in(imgPath, std::ios::binary);
-        art.bytes.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
-    }
-    std::filesystem::remove(imgPath, ec);
-
-    if (art.bytes.empty()) {
-        if (log) {
-            log->warn("[mb] downloaded cover file was empty");
-        }
-        return std::nullopt;
-    }
-    if (!isJpeg(art.bytes) && !isPng(art.bytes)) {
-        if (log) {
-            log->warn("[mb] downloaded bytes are not JPEG/PNG (size " +
-                      std::to_string(art.bytes.size()) + "); rejecting");
-            std::string head;
-            for (std::size_t i = 0; i < art.bytes.size() && i < 80; ++i) {
-                const auto c = static_cast<char>(art.bytes[i]);
-                head.push_back((c >= 32 && c < 127) ? c : '.');
-            }
-            log->debug("[mb] head: " + head);
-        }
-        return std::nullopt;
-    }
-
-    art.mimeType = guessMime(art.bytes);
-    art.source = "coverartarchive:" + *releaseId;
-    if (log) {
-        log->info("[mb] cover OK: " + art.mimeType + ", " + std::to_string(art.bytes.size()) +
-                  " bytes");
-    }
-    return art;
+    return std::nullopt;
 }
 
 }  // namespace optigrab

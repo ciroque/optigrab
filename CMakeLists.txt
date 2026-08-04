@@ -145,6 +145,7 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/DiscIdTest.cpp
     tests/CoverArtPipelineTest.cpp
     tests/LoggerTest.cpp
+    tests/MbReleaseParseTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)
   target_include_directories(optigrab_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
