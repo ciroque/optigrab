@@ -75,6 +75,20 @@ bool looksLikeErrorJson(const std::string& json) {
            json.find("Not Found") != std::string::npos;
 }
 
+// Extract "503" from messages like: curl: (22) The requested URL returned error: 503
+std::optional<int> httpStatusFromCurlOutput(const std::string& output) {
+    static const std::regex re(R"(returned error:\s*(\d{3}))");
+    std::smatch m;
+    if (std::regex_search(output, m, re) && m.size() >= 2) {
+        try {
+            return std::stoi(m[1].str());
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+    return std::nullopt;
+}
+
 void logCurlFailure(Logger* log, const std::string& step, const std::string& url,
                     const CurlResult& r) {
     if (!log) {
@@ -83,7 +97,10 @@ void logCurlFailure(Logger* log, const std::string& step, const std::string& url
     log->warn("[mb] " + step + " failed");
     log->debug("[mb]   url: " + url);
     std::string why = "curl exit " + std::to_string(r.exitCode);
-    if (r.exitCode == 22) {
+    const auto http = httpStatusFromCurlOutput(r.output);
+    if (http) {
+        why += " (HTTP " + std::to_string(*http) + ")";
+    } else if (r.exitCode == 22) {
         why += " (HTTP error)";
     } else if (r.exitCode == 6) {
         why += " (couldn't resolve host)";
@@ -100,6 +117,24 @@ void logCurlFailure(Logger* log, const std::string& step, const std::string& url
     }
     if (!r.fileOk) {
         log->debug("[mb]   no usable download file (size " + std::to_string(r.fileSize) + ")");
+    }
+
+    if (http) {
+        if (*http == 404 || *http == 400) {
+            log->info("[mb] hint: resource not found — disc/release may be unknown to the service");
+        } else if (*http == 503 || *http == 502 || *http == 504) {
+            log->info("[mb] hint: service temporarily unavailable — retry later (not a disc-ID problem)");
+        } else if (*http == 429) {
+            log->info("[mb] hint: rate limited by the service — wait and retry");
+        } else if (*http >= 500) {
+            log->info("[mb] hint: remote server error — retry later");
+        }
+    } else if (r.exitCode == 28) {
+        log->info("[mb] hint: network timeout — check connectivity and retry");
+    } else if (r.exitCode == 6 || r.exitCode == 7) {
+        log->info("[mb] hint: network/DNS problem — check connectivity");
+    } else if (r.exitCode == 127) {
+        log->info("[mb] hint: install curl and ensure it is on PATH");
     }
 }
 
@@ -145,10 +180,6 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         logCurlFailure(log, "MusicBrainz discid lookup", mbUrl, mb);
         std::error_code ec;
         std::filesystem::remove(tmp, ec);
-        if (mb.exitCode == 22 && log) {
-            log->info("[mb] hint: disc ID may be unknown to MusicBrainz "
-                      "(uncommon pressing, wrong TOC, multi-session)");
-        }
         return std::nullopt;
     }
 
@@ -203,7 +234,8 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         caa = curlToFile(curl_, caaFront, imgPath);
         if (caa.exitCode != 0 || !caa.fileOk) {
             logCurlFailure(log, "CAA front", caaFront, caa);
-            if (caa.exitCode == 22 && log) {
+            const auto st = httpStatusFromCurlOutput(caa.output);
+            if (st && *st == 404 && log) {
                 log->info("[mb] hint: release exists but Cover Art Archive has no front image");
             }
             std::filesystem::remove(imgPath, ec);
