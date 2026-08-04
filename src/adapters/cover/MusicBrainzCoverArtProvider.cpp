@@ -22,25 +22,78 @@ struct CurlResult {
     std::uintmax_t fileSize{0};
 };
 
+std::string readFile(const std::filesystem::path& p) {
+    std::ifstream in(p, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+// Cover Art Archive returns 307 → archive.org. That hop is flaky (intermittent 500).
+// Do NOT use curl --fail for CAA: it aborts on those 5xxs even when a retry would succeed.
+// Follow redirects, retry a few times, then validate bytes are a real image.
 CurlResult curlToFile(const std::string& curlBin, const std::string& url,
-                      const std::filesystem::path& outFile) {
-    const std::vector<std::string> args = {
-        curlBin, "-sS", "-L", "--fail", "--max-time", "30", "-A", kUserAgent,
-        "-o",    outFile.string(),      url,
+                      const std::filesystem::path& outFile, bool strictHttpFail = false) {
+    std::vector<std::string> args = {
+        curlBin,
+        "-sS",
+        "-L",
+        "--max-time",
+        "45",
+        "--retry",
+        "3",
+        "--retry-delay",
+        "1",
+        "--retry-all-errors",
+        "-A",
+        kUserAgent,
+        "-o",
+        outFile.string(),
+        url,
     };
+    if (strictHttpFail) {
+        // MusicBrainz JSON: hard-fail on 4xx so we don't parse HTML error pages.
+        args.insert(args.begin() + 3, "--fail");
+    }
     CurlResult r;
     r.exitCode = runProcess(args, r.output, r.output);
     std::error_code ec;
     if (std::filesystem::exists(outFile, ec)) {
         r.fileSize = std::filesystem::file_size(outFile, ec);
         r.fileOk = !ec && r.fileSize > 0;
+        // Redirect body without following is plain text: "See: https://..."
+        if (r.fileOk && r.fileSize < 512) {
+            const auto head = readFile(outFile);
+            if (head.rfind("See: http", 0) == 0 ||
+                head.find("https://archive.org/") != std::string::npos) {
+                static const std::regex urlRe(R"(https://[^\s]+)");
+                std::smatch m;
+                if (std::regex_search(head, m, urlRe)) {
+                    std::string cleaned = m[0].str();
+                    while (!cleaned.empty() && (cleaned.back() == '.' || cleaned.back() == ')' ||
+                                                cleaned.back() == '\r')) {
+                        cleaned.pop_back();
+                    }
+                    std::vector<std::string> args2 = {
+                        curlBin,         "-sS", "-L", "--max-time", "45", "--retry", "3",
+                        "--retry-delay", "1",   "--retry-all-errors", "-A", kUserAgent,
+                        "-o",            outFile.string(), cleaned,
+                    };
+                    r.exitCode = runProcess(args2, r.output, r.output);
+                    if (std::filesystem::exists(outFile, ec)) {
+                        r.fileSize = std::filesystem::file_size(outFile, ec);
+                        r.fileOk = !ec && r.fileSize > 64;
+                    } else {
+                        r.fileOk = false;
+                    }
+                }
+            }
+        }
+        // Final gate for non-strict downloads: junk HTML counts as failure later via isJpeg/isPng.
+        if (r.fileOk && r.exitCode != 0 && !strictHttpFail) {
+            // Prefer success if we have a substantial payload (image), even if curl reported error.
+            r.exitCode = 0;
+        }
     }
     return r;
-}
-
-std::string readFile(const std::filesystem::path& p) {
-    std::ifstream in(p, std::ios::binary);
-    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
 std::string trimSnippet(std::string s, std::size_t max = 240) {
@@ -369,26 +422,30 @@ std::optional<CoverArt> fetchCaaFront(const std::string& curlBin, const std::str
         log->info("[mb] fetching CAA front-500 for release " + releaseId);
         log->debug("[mb] GET " + caa500);
     }
-    auto caa = curlToFile(curlBin, caa500, imgPath);
-    if (caa.exitCode == 0 && caa.fileOk) {
-        auto art = loadCoverFile(imgPath, "coverartarchive:" + releaseId, log);
-        std::filesystem::remove(imgPath, ec);
-        return art;
+    auto caa = curlToFile(curlBin, caa500, imgPath, /*strictHttpFail=*/false);
+    if (caa.fileOk) {
+        if (auto art = loadCoverFile(imgPath, "coverartarchive:" + releaseId, log)) {
+            std::filesystem::remove(imgPath, ec);
+            return art;
+        }
+    } else {
+        logCurlFailure(log, "CAA front-500", caa500, caa);
     }
-    logCurlFailure(log, "CAA front-500", caa500, caa);
 
     const std::string caaFront = "https://coverartarchive.org/release/" + releaseId + "/front";
     if (log) {
         log->info("[mb] trying CAA full front for release " + releaseId);
         log->debug("[mb] GET " + caaFront);
     }
-    caa = curlToFile(curlBin, caaFront, imgPath);
-    if (caa.exitCode == 0 && caa.fileOk) {
-        auto art = loadCoverFile(imgPath, "coverartarchive:" + releaseId, log);
-        std::filesystem::remove(imgPath, ec);
-        return art;
+    caa = curlToFile(curlBin, caaFront, imgPath, /*strictHttpFail=*/false);
+    if (caa.fileOk) {
+        if (auto art = loadCoverFile(imgPath, "coverartarchive:" + releaseId, log)) {
+            std::filesystem::remove(imgPath, ec);
+            return art;
+        }
+    } else {
+        logCurlFailure(log, "CAA front", caaFront, caa);
     }
-    logCurlFailure(log, "CAA front", caaFront, caa);
     std::filesystem::remove(imgPath, ec);
     return std::nullopt;
 }
@@ -430,7 +487,7 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         log->debug("[mb] GET " + mbUrl);
     }
 
-    auto mb = curlToFile(curl_, mbUrl, tmp);
+    auto mb = curlToFile(curl_, mbUrl, tmp, /*strictHttpFail=*/true);
     if (mb.exitCode != 0 || !mb.fileOk) {
         logCurlFailure(log, "MusicBrainz discid lookup", mbUrl, mb);
         std::error_code ec;
