@@ -7,34 +7,51 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 ## Features
 
 - Interactive **VERB → NOUN** REPL (`list drive`, `select drive`, `rip track`, …)
+- Command history with **↑ / ↓** (TTY / console)
 - Swappable backends via clean ports:
-  - **Extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
+  - **Linux extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
+  - **Windows extract:** `ffmpeg` (default)
   - **Encode:** `ffmpeg` + libmp3lame (tags included)
-  - **TOC:** libcdio (CD-TEXT when present)
+  - **TOC:** libcdio (Linux), Windows SPTI (Windows)
 - Session focus (selected drive), manual artist/album overrides
 - Filenames: `<out>/<Artist> - <Album>/<NN> Title.mp3`
 
-## Requirements (Linux)
+## Requirements
+
+### Linux
 
 - CMake ≥ 3.20, C++20 compiler
 - `libcdio`, `libcdio_cdda`, `libcdio_paranoia` (pkg-config)
-- `ffmpeg` (with `libmp3lame`; `libcdio` demuxer optional for ffmpeg extract)
-- `cdparanoia` (recommended extractor)
+- `ffmpeg` (with `libmp3lame`)
+- `cdparanoia` (default extractor)
+- User in the `optical` (or `cdrom`) group for `/dev/sr*` access
+
+### Windows
+
+- CMake ≥ 3.20, MSVC or compatible C++20 toolchain
+- `ffmpeg` on `PATH` (extract + encode)
+- Optical drive visible as a CD-ROM drive letter (e.g. `D:`)
 
 ## Build
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-Binary: `build/optigrab`
+Binary: `build/optigrab` (Linux) or `build/Release/optigrab.exe` (MSVC multi-config).
+
+Optional version stamp:
+
+```bash
+cmake -S . -B build -DOPTIGRAB_VERSION=0.2.0
+```
 
 ## Usage
 
 ```text
-$ ./build/optigrab
+$ optigrab
 OPTIGRAB> list drive
 OPTIGRAB> select drive 0
 OPTIGRAB> set artist "The Band"
@@ -55,10 +72,10 @@ OPTIGRAB> exit
 | `detail drive` / `detail disc` | Session / disc info |
 | `rip track <all\|N\|N-M\|…>` | Extract + encode |
 | `set out\|quality\|artist\|album` | Session options |
-| `set extractor <ffmpeg\|cdparanoia\|libcdio>` | Swap extractor |
+| `set extractor …` | Swap extractor (platform-dependent) |
 | `set encoder <ffmpeg>` | Swap encoder |
 | `help` / `cls` / `exit` | Shell utilities |
-| ↑ / ↓ | Recall previous commands (TTY only) |
+| ↑ / ↓ | Recall previous commands |
 
 ## Architecture
 
@@ -69,17 +86,32 @@ CLI (VERB NOUN) → Session + Commands
        ↓
  DriveEnumerator | TocReader | AudioExtractor | AudioEncoder | MetadataProvider
        ↓                ↓              ↓              ↓
-   Linux /sys      libcdio     cdparanoia CLI   ffmpeg CLI
-                               libcdio_paranoia
-                               ffmpeg libcdio
+   Linux / Windows   libcdio / SPTI   cdparanoia    ffmpeg
+                                      libcdio / ffmpeg
 ```
 
 Core code depends on **ports** only. Adapters are thin wrappers.
 
-## Windows
+## CI & releases
 
-Drive enumeration and raw CD-DA I/O differ (drive letters + SPTI). Ports are OS-agnostic; a Windows `DriveEnumerator` / extract path can be added without touching the CLI. Linux is the supported platform today.
+- **CI** (`.github/workflows/ci.yml`): build + test on Ubuntu and Windows for every PR/push to main.
+- **Release** (`.github/workflows/release.yml`): push a tag `v0.2.0` → builds both platforms → GitHub Release with archives.
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+## Metadata naming
+
+Track/file names use:
+
+1. CD-TEXT when present (Linux/libcdio)
+2. `set artist` / `set album` session overrides
+3. Fallbacks: `Track NN`, `Unknown Artist`, `Unknown Album`
+
+No MusicBrainz lookup yet.
 
 ## License
 
-MIT (see LICENSE if present; otherwise all rights reserved by the author until declared).
+MIT — see [LICENSE](LICENSE).
