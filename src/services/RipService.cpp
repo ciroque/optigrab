@@ -44,10 +44,10 @@ RipService::RipService(std::shared_ptr<TocReader> toc,
       coverProvider_(std::move(coverProvider)),
       coverApplier_(std::move(coverApplier)) {}
 
-void RipService::loadDisc(Session& session, LogFn log) {
+void RipService::loadDisc(Session& session, Logger* log) {
     const auto& drive = session.selectedDrive();
     if (log) {
-        log("Reading TOC from " + drive.path + " ...");
+        log->info("reading TOC from " + drive.path);
     }
     auto disc = toc_->readToc(drive.path);
     if (metadata_) {
@@ -66,7 +66,7 @@ void RipService::loadDisc(Session& session, LogFn log) {
     }
     session.setDisc(std::move(disc));
     if (log) {
-        log("Loaded " + std::to_string(session.disc().tracks.size()) + " track(s).");
+        log->info("loaded " + std::to_string(session.disc().tracks.size()) + " track(s)");
     }
 }
 
@@ -103,7 +103,7 @@ Tags RipService::makeTags(const Session& session, const TrackInfo& track, int tr
 
 std::vector<RipResult> RipService::ripTracks(Session& session,
                                              const std::vector<int>& trackNumbers,
-                                             LogFn log) {
+                                             Logger* log) {
     if (session.ripInProgress()) {
         throw SessionError("A rip is already in progress");
     }
@@ -121,30 +121,32 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
     std::vector<RipResult> results;
     results.reserve(trackNumbers.size());
 
-    // --- Pass 0: cover download (fail soft) ---
     std::optional<CoverArt> cover;
     if (session.fetchCoverArt() && coverProvider_) {
         if (log) {
-            log("Looking up cover art via " + coverProvider_->name() + " ...");
+            log->info("looking up cover art via " + coverProvider_->name());
         }
         try {
             cover = coverProvider_->fetch(disc, session, log);
-            if (cover && log) {
-                log("Cover art ready (" + cover->source + ", " +
-                    std::to_string(cover->bytes.size()) + " bytes).");
+            if (cover) {
+                if (log) {
+                    log->info("cover art ready (" + cover->source + ", " +
+                              std::to_string(cover->bytes.size()) + " bytes)");
+                }
             } else if (log) {
-                log("No cover art found (continuing without). See diagnostics above.");
+                log->warn("no cover art found (continuing without)");
             }
         } catch (const std::exception& ex) {
             if (log) {
-                log(std::string("Cover art lookup failed: ") + ex.what() + " (continuing).");
+                log->error(std::string("cover art lookup failed: ") + ex.what() +
+                           " (continuing)");
             }
             cover.reset();
         }
     } else if (log && !session.fetchCoverArt()) {
-        log("Cover art disabled (set coverart off / --no-cover).");
+        log->info("cover art disabled");
     } else if (log && !coverProvider_) {
-        log("Cover art provider not configured.");
+        log->debug("cover art provider not configured");
     }
 
     session.setRipInProgress(true);
@@ -161,7 +163,6 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
         std::vector<std::filesystem::path> successfulMp3s;
         std::filesystem::path albumDir;
 
-        // --- Pass A: extract + encode ---
         int jobIndex = 0;
         for (int n : trackNumbers) {
             ++jobIndex;
@@ -170,6 +171,9 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
             if (n < 1 || n > totalOnDisc) {
                 result.success = false;
                 result.message = "Track out of range";
+                if (log) {
+                    log->error("track " + std::to_string(n) + " out of range");
+                }
                 results.push_back(std::move(result));
                 continue;
             }
@@ -178,6 +182,9 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
             if (!track.audio) {
                 result.success = false;
                 result.message = "Not an audio track";
+                if (log) {
+                    log->warn("track " + std::to_string(n) + " is not audio — skipping");
+                }
                 results.push_back(std::move(result));
                 continue;
             }
@@ -195,24 +202,24 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
 
                 const auto wav = tmpDir / ("track-" + std::to_string(n) + ".wav");
                 if (log) {
-                    log(prefix + "Extracting \"" + trackLabel(track) + "\" via " +
-                        extractor_->name() + " ...");
+                    log->info(prefix + "extracting \"" + trackLabel(track) + "\" via " +
+                              extractor_->name());
                 }
-                extractor_->extractTrack(session.selectedDrive().path, track, wav,
-                                         [&](const std::string& m) {
-                                             if (log) {
-                                                 log(m);
-                                             }
-                                         });
+                extractor_->extractTrack(
+                    session.selectedDrive().path, track, wav, [&](const std::string& m) {
+                        if (log) {
+                            log->debug(m);
+                        }
+                    });
 
                 if (log) {
-                    log(prefix + "Encoding via " + encoder_->name() + " (" +
-                        toString(session.quality()) + ") ...");
+                    log->info(prefix + "encoding via " + encoder_->name() + " (" +
+                              toString(session.quality()) + ")");
                 }
                 encoder_->encode(wav, outMp3, tags, session.quality(),
                                  [&](const std::string& m) {
                                      if (log) {
-                                         log(m);
+                                         log->debug(m);
                                      }
                                  });
 
@@ -224,26 +231,25 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
                 result.message = "OK";
                 successfulMp3s.push_back(outMp3);
                 if (log) {
-                    log(prefix + "Wrote " + outMp3.string());
+                    log->info(prefix + "wrote " + outMp3.string());
                 }
             } catch (const std::exception& ex) {
                 result.success = false;
                 result.message = ex.what();
                 if (log) {
-                    log(prefix + "FAILED: " + ex.what());
+                    log->error(prefix + "FAILED: " + ex.what());
                 }
             }
             results.push_back(std::move(result));
         }
 
-        // --- Pass B: sidecar + embed (serial, only if cover exists) ---
         if (cover && coverApplier_ && !successfulMp3s.empty()) {
             if (albumDir.empty()) {
                 albumDir = successfulMp3s.front().parent_path();
             }
             try {
                 if (log) {
-                    log("Applying cover art (" + coverApplier_->name() + ") ...");
+                    log->info("applying cover art via " + coverApplier_->name());
                 }
                 coverApplier_->writeSidecar(albumDir, *cover, log);
                 int i = 0;
@@ -252,21 +258,21 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
                     ++i;
                     try {
                         if (log) {
-                            log("[" + std::to_string(i) + "/" + std::to_string(n) +
-                                "] Embedding cover into " + mp3.filename().string() + " ...");
+                            log->info("[" + std::to_string(i) + "/" + std::to_string(n) +
+                                      "] embedding cover into " + mp3.filename().string());
                         }
                         coverApplier_->embed(mp3, *cover, log);
                     } catch (const std::exception& ex) {
                         if (log) {
-                            log("  cover embed failed for " + mp3.filename().string() + ": " +
-                                ex.what());
+                            log->error("cover embed failed for " + mp3.filename().string() + ": " +
+                                       ex.what());
                         }
                     }
                 }
             } catch (const std::exception& ex) {
                 if (log) {
-                    log(std::string("Cover art apply failed: ") + ex.what() +
-                        " (MP3s kept without art).");
+                    log->error(std::string("cover art apply failed: ") + ex.what() +
+                               " (MP3s kept without art)");
                 }
             }
         }

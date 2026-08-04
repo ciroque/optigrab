@@ -7,10 +7,10 @@ CompositeCoverArtProvider::CompositeCoverArtProvider(
     : providers_(std::move(providers)) {}
 
 std::optional<CoverArt> CompositeCoverArtProvider::fetch(const DiscInfo& disc,
-                                                         const Session& session, LogFn log) {
+                                                         const Session& session, Logger* log) {
     if (providers_.empty()) {
         if (log) {
-            log("  [composite] no cover providers configured");
+            log->warn("[composite] no cover providers configured");
         }
         return std::nullopt;
     }
@@ -20,26 +20,26 @@ std::optional<CoverArt> CompositeCoverArtProvider::fetch(const DiscInfo& disc,
             continue;
         }
         if (log) {
-            log("  trying provider: " + p->name());
+            log->debug("trying cover provider: " + p->name());
         }
         try {
             if (auto art = p->fetch(disc, session, log)) {
                 if (log) {
-                    log("  provider " + p->name() + " succeeded (" + art->source + ")");
+                    log->info("cover provider " + p->name() + " succeeded (" + art->source + ")");
                 }
                 return art;
             }
             if (log) {
-                log("  provider " + p->name() + " returned no cover");
+                log->debug("cover provider " + p->name() + " returned no cover");
             }
         } catch (const std::exception& ex) {
             if (log) {
-                log("  provider " + p->name() + " threw: " + ex.what());
+                log->warn("cover provider " + p->name() + " threw: " + ex.what());
             }
         }
     }
     if (log) {
-        log("  all cover providers exhausted — no art");
+        log->warn("all cover providers exhausted — no art");
     }
     return std::nullopt;
 }

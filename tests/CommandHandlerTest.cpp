@@ -83,7 +83,7 @@ TEST_CASE("unknown verb noun reports error", "[cli]") {
     auto ctx = makeTestContext(out, err);
     auto handler = makeDefaultCommandHandler();
     handler.execute(ctx, "list sandwich");
-    REQUIRE(err.str().find("Unknown") != std::string::npos);
+    REQUIRE(err.str().find("unknown") != std::string::npos);
 }
 
 TEST_CASE("rip track all with fakes", "[cli]") {

@@ -10,7 +10,7 @@ namespace optigrab {
 FfmpegCoverArtApplier::FfmpegCoverArtApplier(std::string binary) : binary_(std::move(binary)) {}
 
 std::filesystem::path FfmpegCoverArtApplier::writeSidecar(const std::filesystem::path& albumDir,
-                                                          const CoverArt& art, LogFn log) {
+                                                          const CoverArt& art, Logger* log) {
     std::filesystem::create_directories(albumDir);
     const auto path = albumDir / ("cover" + sidecarExtension(art));
     std::ofstream out(path, std::ios::binary);
@@ -20,16 +20,15 @@ std::filesystem::path FfmpegCoverArtApplier::writeSidecar(const std::filesystem:
     out.write(reinterpret_cast<const char*>(art.bytes.data()),
               static_cast<std::streamsize>(art.bytes.size()));
     if (log) {
-        log("Wrote cover art " + path.string() + " (from " + art.source + ")");
+        log->info("wrote cover sidecar " + path.string() + " (from " + art.source + ")");
     }
     return path;
 }
 
 void FfmpegCoverArtApplier::embed(const std::filesystem::path& mp3Path, const CoverArt& art,
-                                  LogFn log) {
+                                  Logger* log) {
     const auto coverFile =
-        std::filesystem::temp_directory_path() /
-        ("optigrab-embed-cover" + sidecarExtension(art));
+        std::filesystem::temp_directory_path() / ("optigrab-embed-cover" + sidecarExtension(art));
     {
         std::ofstream out(coverFile, std::ios::binary);
         out.write(reinterpret_cast<const char*>(art.bytes.data()),
@@ -37,33 +36,18 @@ void FfmpegCoverArtApplier::embed(const std::filesystem::path& mp3Path, const Co
     }
 
     const auto tmpOut = mp3Path.string() + ".cover-tmp.mp3";
-    // Map audio from original; attach cover as video stream with attached_pic disposition.
     const std::vector<std::string> args = {
-        binary_,
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-y",
-        "-i",
-        mp3Path.string(),
-        "-i",
-        coverFile.string(),
-        "-map",
-        "0:a",
-        "-map",
-        "1:0",
-        "-c",
-        "copy",
-        "-c:v",
-        "mjpeg",
-        "-disposition:v",
-        "attached_pic",
-        "-id3v2_version",
-        "3",
-        tmpOut,
+        binary_,       "-hide_banner", "-loglevel", "error",       "-y",
+        "-i",          mp3Path.string(), "-i",      coverFile.string(),
+        "-map",        "0:a",          "-map",      "1:0",         "-c",
+        "copy",        "-c:v",         "mjpeg",     "-disposition:v", "attached_pic",
+        "-id3v2_version", "3",         tmpOut,
     };
 
     try {
+        if (log) {
+            log->debug("ffmpeg embed cover into " + mp3Path.string());
+        }
         runProcessOrThrow(args, "ffmpeg cover embed");
         std::error_code ec;
         std::filesystem::rename(tmpOut, mp3Path, ec);
@@ -76,7 +60,7 @@ void FfmpegCoverArtApplier::embed(const std::filesystem::path& mp3Path, const Co
             }
         }
         if (log) {
-            log("Embedded cover art into " + mp3Path.filename().string());
+            log->info("embedded cover into " + mp3Path.filename().string());
         }
     } catch (...) {
         std::error_code ec;

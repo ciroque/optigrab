@@ -30,7 +30,7 @@ public:
     void execute(Context& ctx, const std::vector<std::string>&) override {
         ensureDriveSelected(ctx);
         if (!ctx.session.hasDisc()) {
-            ctx.ripper->loadDisc(ctx.session, [&](const std::string& m) { ctx.err << m << "\n"; });
+            ctx.ripper->loadDisc(ctx.session, &ctx.log);
         }
         const auto& disc = ctx.session.disc();
         ctx.out << "Disc on " << disc.devicePath << "\n";

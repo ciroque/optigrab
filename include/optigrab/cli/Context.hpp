@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optigrab/domain/Session.hpp"
+#include "optigrab/log/Logger.hpp"
 #include "optigrab/ports/DriveEnumerator.hpp"
 #include "optigrab/services/RipService.hpp"
 
@@ -14,12 +15,12 @@ struct Context {
     Session session;
     std::shared_ptr<DriveEnumerator> drives;
     std::shared_ptr<RipService> ripper;
-    // Factory to rebuild RipService when extractor/encoder selection changes.
     std::function<std::shared_ptr<RipService>(ExtractorKind, EncoderKind)> rebuildRipper;
-    std::ostream& out;
-    std::ostream& err;
+    std::ostream& out;   // user-facing tables / command results
+    std::ostream& err;   // underlying stream for logger default sink
+    Logger log;
     bool shouldExit{false};
-    int exitCode{0};  // non-zero for scripted mode failures
+    int exitCode{0};
 
     Context(std::shared_ptr<DriveEnumerator> driveEnum,
             std::shared_ptr<RipService> ripService,
@@ -30,7 +31,8 @@ struct Context {
           ripper(std::move(ripService)),
           rebuildRipper(std::move(rebuild)),
           out(output),
-          err(error) {}
+          err(error),
+          log(error, LogLevel::Info) {}
 };
 
 }  // namespace optigrab

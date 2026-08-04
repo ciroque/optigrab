@@ -27,13 +27,12 @@ public:
 
         ensureDriveSelected(ctx);
         if (!ctx.session.hasDisc()) {
-            ctx.ripper->loadDisc(ctx.session, [&](const std::string& m) { ctx.err << m << "\n"; });
+            ctx.ripper->loadDisc(ctx.session, &ctx.log);
         }
         const int maxTrack = static_cast<int>(ctx.session.disc().tracks.size());
         const auto tracks = parseTrackRange(spec.str(), maxTrack);
 
-        const auto results = ctx.ripper->ripTracks(
-            ctx.session, tracks, [&](const std::string& m) { ctx.err << m << "\n"; });
+        const auto results = ctx.ripper->ripTracks(ctx.session, tracks, &ctx.log);
 
         int ok = 0;
         int fail = 0;
@@ -43,7 +42,7 @@ public:
                 ctx.out << "Track " << r.trackNumber << " -> " << r.outputPath.string() << "\n";
             } else {
                 ++fail;
-                ctx.err << "Track " << r.trackNumber << " failed: " << r.message << "\n";
+                ctx.log.error("track " + std::to_string(r.trackNumber) + " failed: " + r.message);
             }
         }
         ctx.out << "Done. " << ok << " succeeded, " << fail << " failed.\n";

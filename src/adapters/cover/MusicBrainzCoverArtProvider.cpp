@@ -23,9 +23,8 @@ CurlResult curlToFile(const std::string& curlBin, const std::string& url,
                       const std::filesystem::path& outFile) {
     const std::vector<std::string> args = {
         curlBin, "-sS", "-L", "--fail", "--max-time", "30", "-A", kUserAgent,
-        "-o",    outFile.string(), url,
+        "-o",    outFile.string(),      url,
     };
-    // -sS: silent but show errors; -L follow redirects; --fail HTTP error → non-zero
     CurlResult r;
     r.exitCode = runProcess(args, r.output, r.output);
     std::error_code ec;
@@ -45,7 +44,6 @@ std::string trimSnippet(std::string s, std::size_t max = 240) {
     while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ')) {
         s.pop_back();
     }
-    // collapse newlines for one-line logs
     for (char& c : s) {
         if (c == '\n' || c == '\r') {
             c = ' ';
@@ -77,25 +75,31 @@ bool looksLikeErrorJson(const std::string& json) {
            json.find("Not Found") != std::string::npos;
 }
 
-void logCurlFailure(CoverArtProvider::LogFn log, const std::string& step, const std::string& url,
+void logCurlFailure(Logger* log, const std::string& step, const std::string& url,
                     const CurlResult& r) {
     if (!log) {
         return;
     }
-    log("  [mb] " + step + " failed");
-    log("  [mb]   url: " + url);
-    log("  [mb]   curl exit: " + std::to_string(r.exitCode) +
-        (r.exitCode == 22   ? " (HTTP error — --fail)"
-         : r.exitCode == 6  ? " (couldn't resolve host)"
-         : r.exitCode == 7  ? " (failed to connect)"
-         : r.exitCode == 28 ? " (timeout)"
-         : r.exitCode == 127 ? " (curl not found on PATH?)"
-                            : ""));
+    log->warn("[mb] " + step + " failed");
+    log->debug("[mb]   url: " + url);
+    std::string why = "curl exit " + std::to_string(r.exitCode);
+    if (r.exitCode == 22) {
+        why += " (HTTP error)";
+    } else if (r.exitCode == 6) {
+        why += " (couldn't resolve host)";
+    } else if (r.exitCode == 7) {
+        why += " (failed to connect)";
+    } else if (r.exitCode == 28) {
+        why += " (timeout)";
+    } else if (r.exitCode == 127) {
+        why += " (curl not found on PATH?)";
+    }
+    log->warn("[mb]   " + why);
     if (!r.output.empty()) {
-        log("  [mb]   curl: " + trimSnippet(r.output));
+        log->debug("[mb]   curl: " + trimSnippet(r.output));
     }
     if (!r.fileOk) {
-        log("  [mb]   no usable download file (size " + std::to_string(r.fileSize) + ")");
+        log->debug("[mb]   no usable download file (size " + std::to_string(r.fileSize) + ")");
     }
 }
 
@@ -105,7 +109,7 @@ MusicBrainzCoverArtProvider::MusicBrainzCoverArtProvider(std::string curlBinary)
     : curl_(std::move(curlBinary)) {}
 
 std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc, const Session&,
-                                                           LogFn log) {
+                                                           Logger* log) {
     int audioTracks = 0;
     for (const auto& t : disc.tracks) {
         if (t.audio) {
@@ -113,26 +117,27 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         }
     }
     if (log) {
-        log("  [mb] disc has " + std::to_string(disc.tracks.size()) + " TOC entries, " +
-            std::to_string(audioTracks) + " audio");
+        log->debug("[mb] disc has " + std::to_string(disc.tracks.size()) + " TOC entries, " +
+                   std::to_string(audioTracks) + " audio");
     }
 
     const auto discId = computeMusicBrainzDiscId(disc);
     if (!discId) {
         if (log) {
-            log("  [mb] cannot compute MusicBrainz Disc ID (need audio tracks with LBA/length)");
+            log->warn("[mb] cannot compute MusicBrainz Disc ID (need audio tracks with LBA/length)");
         }
         return std::nullopt;
     }
     if (log) {
-        log("  [mb] disc ID: " + *discId);
+        log->info("[mb] disc ID: " + *discId);
     }
 
     const auto tmp = std::filesystem::temp_directory_path() / ("optigrab-mb-" + *discId + ".json");
     const std::string mbUrl =
         "https://musicbrainz.org/ws/2/discid/" + *discId + "?fmt=json&inc=artists";
     if (log) {
-        log("  [mb] querying MusicBrainz ...");
+        log->info("[mb] querying MusicBrainz ...");
+        log->debug("[mb] GET " + mbUrl);
     }
 
     auto mb = curlToFile(curl_, mbUrl, tmp);
@@ -141,8 +146,8 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         std::error_code ec;
         std::filesystem::remove(tmp, ec);
         if (mb.exitCode == 22 && log) {
-            log("  [mb] hint: disc ID may be unknown to MusicBrainz (uncommon pressing, "
-                "wrong TOC, multi-session disc)");
+            log->info("[mb] hint: disc ID may be unknown to MusicBrainz "
+                      "(uncommon pressing, wrong TOC, multi-session)");
         }
         return std::nullopt;
     }
@@ -152,18 +157,18 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
     std::filesystem::remove(tmp, ec);
 
     if (log) {
-        log("  [mb] MusicBrainz response " + std::to_string(json.size()) + " bytes");
+        log->debug("[mb] MusicBrainz response " + std::to_string(json.size()) + " bytes");
     }
     if (looksLikeErrorJson(json)) {
         if (log) {
-            log("  [mb] response looks like an error: " + trimSnippet(json));
+            log->warn("[mb] response looks like an error: " + trimSnippet(json));
         }
         return std::nullopt;
     }
     if (json.find("\"releases\"") == std::string::npos) {
         if (log) {
-            log("  [mb] JSON has no \"releases\" field — disc not linked to a release");
-            log("  [mb] snippet: " + trimSnippet(json));
+            log->warn("[mb] JSON has no \"releases\" field — disc not linked to a release");
+            log->debug("[mb] snippet: " + trimSnippet(json));
         }
         return std::nullopt;
     }
@@ -171,26 +176,27 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
     const auto releaseId = firstReleaseId(json);
     if (!releaseId) {
         if (log) {
-            log("  [mb] could not parse a release UUID from MusicBrainz JSON");
-            log("  [mb] snippet: " + trimSnippet(json));
+            log->warn("[mb] could not parse a release UUID from MusicBrainz JSON");
+            log->debug("[mb] snippet: " + trimSnippet(json));
         }
         return std::nullopt;
     }
     if (log) {
-        log("  [mb] release MBID: " + *releaseId);
+        log->info("[mb] release MBID: " + *releaseId);
     }
 
     const auto imgPath =
         std::filesystem::temp_directory_path() / ("optigrab-cover-" + *releaseId + ".img");
     const std::string caa500 = "https://coverartarchive.org/release/" + *releaseId + "/front-500";
     if (log) {
-        log("  [mb] fetching Cover Art Archive front-500 ...");
+        log->info("[mb] fetching Cover Art Archive front-500 ...");
+        log->debug("[mb] GET " + caa500);
     }
     auto caa = curlToFile(curl_, caa500, imgPath);
     if (caa.exitCode != 0 || !caa.fileOk) {
         logCurlFailure(log, "CAA front-500", caa500, caa);
         if (log) {
-            log("  [mb] trying CAA full front ...");
+            log->info("[mb] trying CAA full front ...");
         }
         const std::string caaFront =
             "https://coverartarchive.org/release/" + *releaseId + "/front";
@@ -198,7 +204,7 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         if (caa.exitCode != 0 || !caa.fileOk) {
             logCurlFailure(log, "CAA front", caaFront, caa);
             if (caa.exitCode == 22 && log) {
-                log("  [mb] hint: release exists but Cover Art Archive has no front image");
+                log->info("[mb] hint: release exists but Cover Art Archive has no front image");
             }
             std::filesystem::remove(imgPath, ec);
             return std::nullopt;
@@ -214,22 +220,20 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
 
     if (art.bytes.empty()) {
         if (log) {
-            log("  [mb] downloaded cover file was empty");
+            log->warn("[mb] downloaded cover file was empty");
         }
         return std::nullopt;
     }
     if (!isJpeg(art.bytes) && !isPng(art.bytes)) {
         if (log) {
-            log("  [mb] downloaded bytes are not JPEG/PNG (size " +
-                std::to_string(art.bytes.size()) +
-                "); may be an HTML error page — rejecting");
-            // show first bytes as text if printable-ish
+            log->warn("[mb] downloaded bytes are not JPEG/PNG (size " +
+                      std::to_string(art.bytes.size()) + "); rejecting");
             std::string head;
             for (std::size_t i = 0; i < art.bytes.size() && i < 80; ++i) {
                 const auto c = static_cast<char>(art.bytes[i]);
                 head.push_back((c >= 32 && c < 127) ? c : '.');
             }
-            log("  [mb] head: " + head);
+            log->debug("[mb] head: " + head);
         }
         return std::nullopt;
     }
@@ -237,8 +241,8 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
     art.mimeType = guessMime(art.bytes);
     art.source = "coverartarchive:" + *releaseId;
     if (log) {
-        log("  [mb] cover OK: " + art.mimeType + ", " + std::to_string(art.bytes.size()) +
-            " bytes");
+        log->info("[mb] cover OK: " + art.mimeType + ", " + std::to_string(art.bytes.size()) +
+                  " bytes");
     }
     return art;
 }

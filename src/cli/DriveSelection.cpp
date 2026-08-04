@@ -20,6 +20,7 @@ bool tryAutoSelectSingleDrive(Context& ctx, bool announce) {
         const auto& d = drives.front();
         ctx.out << "Drive " << d.index << " is now the selected drive (" << d.path
                 << ") [auto].\n";
+        ctx.log.info("auto-selected drive " + std::to_string(d.index) + " (" + d.path + ")");
     }
     return true;
 }

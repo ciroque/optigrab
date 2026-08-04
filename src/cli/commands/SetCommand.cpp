@@ -1,6 +1,7 @@
 #include "optigrab/cli/Command.hpp"
 
 #include "optigrab/domain/Errors.hpp"
+#include "optigrab/log/LogLevel.hpp"
 
 #include <memory>
 #include <sstream>
@@ -174,6 +175,24 @@ public:
     [[nodiscard]] std::string name() const override { return "set coverart"; }
 };
 
+class SetLogLevelCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError("Usage: set loglevel <trace|debug|info|warn|error|fatal|off>");
+        }
+        const auto level = parseLogLevel(tokens[2]);
+        if (!level) {
+            throw ParseError("Unknown log level: " + tokens[2] +
+                             " (trace|debug|info|warn|error|fatal|off)");
+        }
+        ctx.log.setLevel(*level);
+        ctx.out << "Log level: " << toString(*level) << "\n";
+        ctx.log.debug("log level changed to " + std::string(toString(*level)));
+    }
+    [[nodiscard]] std::string name() const override { return "set loglevel"; }
+};
+
 }  // namespace
 
 std::unique_ptr<Command> makeSetOutCommand() { return std::make_unique<SetOutCommand>(); }
@@ -186,5 +205,7 @@ std::unique_ptr<Command> makeSetExtractorCommand() {
 std::unique_ptr<Command> makeSetEncoderCommand() { return std::make_unique<SetEncoderCommand>(); }
 std::unique_ptr<Command> makeSetCoverCommand() { return std::make_unique<SetCoverCommand>(); }
 std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetCoverArtCommand>(); }
+std::unique_ptr<Command> makeSetLogLevelCommand() { return std::make_unique<SetLogLevelCommand>(); }
 
 }  // namespace optigrab
+

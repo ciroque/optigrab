@@ -10,6 +10,7 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 - **One-shot / scriptable** mode (same verbs as flags + command on the argv)
 - Command history with **↑ / ↓** (TTY / console)
 - **Progress** while ripping: `[n/N]` per track, extract %, encode phase
+- **Leveled logging**: `trace` `debug` `info` `warn` `error` `fatal` (`--log-level`, `set loglevel`)
 - **Actionable device errors** (permissions, busy drive, empty tray, …)
 - Swappable backends via clean ports:
   - **Linux extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
@@ -94,6 +95,7 @@ optigrab --drive 0 \
 | `--artist` / `--album` | Tag + folder overrides |
 | `--cover <image>` | Local cover image (used instead of network when set) |
 | `--no-cover` | Skip cover download/embed |
+| `--log-level <level>` | `trace` `debug` `info` `warn` `error` `fatal` `off` |
 | `--quality` | `V0` `V2` `192` `256` `320` |
 | `--extractor` | Platform-dependent (`ffmpeg`, …) |
 | `--encoder` | `ffmpeg` |

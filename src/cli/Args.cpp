@@ -57,6 +57,7 @@ std::string usageText() {
         << "  --album <name>         Album title override\n"
         << "  --cover <image>        Local cover image (skip network if set)\n"
         << "  --no-cover             Disable cover art fetch/embed\n"
+        << "  --log-level <level>    trace|debug|info|warn|error|fatal|off (default: info)\n"
         << "  --quality <preset>     V0 | V2 | 192 | 256 | 320\n";
 #ifdef _WIN32
     oss << "  --extractor <name>     ffmpeg\n";
@@ -122,6 +123,17 @@ LaunchArgs parseLaunchArgs(const std::vector<std::string>& argv) {
         }
         if (a == "--no-cover") {
             out.fetchCoverArt = false;
+            ++i;
+            continue;
+        }
+        if (a == "--log-level" || a == "--loglevel") {
+            const auto v = requireValue(argv, i, a);
+            const auto level = parseLogLevel(v);
+            if (!level) {
+                throw ParseError("Unknown --log-level value: " + v +
+                                 " (trace|debug|info|warn|error|fatal|off)");
+            }
+            out.logLevel = *level;
             ++i;
             continue;
         }

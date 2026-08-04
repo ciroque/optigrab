@@ -12,7 +12,7 @@ public:
     explicit CompositeCoverArtProvider(std::vector<std::shared_ptr<CoverArtProvider>> providers);
 
     [[nodiscard]] std::optional<CoverArt> fetch(const DiscInfo& disc, const Session& session,
-                                                LogFn log = {}) override;
+                                                Logger* log = nullptr) override;
     [[nodiscard]] std::string name() const override { return "composite"; }
 
 private:

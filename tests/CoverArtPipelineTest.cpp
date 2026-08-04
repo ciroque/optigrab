@@ -14,7 +14,6 @@ using namespace optigrab::test;
 
 namespace {
 
-// Minimal valid-looking JPEG (not a real image, but signature for our checks).
 CoverArt tinyJpeg() {
     CoverArt art;
     art.bytes = {0xFF, 0xD8, 0xFF, 0xD9, 0x00, 0x01, 0x02, 0x03};
@@ -26,9 +25,13 @@ CoverArt tinyJpeg() {
 class FakeCoverProvider : public CoverArtProvider {
 public:
     explicit FakeCoverProvider(std::optional<CoverArt> art) : art_(std::move(art)) {}
-    std::optional<CoverArt> fetch(const DiscInfo&, const Session&, LogFn log) override {
+    std::optional<CoverArt> fetch(const DiscInfo&, const Session&, Logger* log) override {
         if (log) {
-            log(art_ ? "  [fake] providing cover" : "  [fake] no cover by design");
+            if (art_) {
+                log->debug("[fake] providing cover");
+            } else {
+                log->debug("[fake] no cover by design");
+            }
         }
         return art_;
     }
@@ -41,7 +44,7 @@ private:
 class FakeCoverApplier : public CoverArtApplier {
 public:
     std::filesystem::path writeSidecar(const std::filesystem::path& albumDir, const CoverArt& art,
-                                       LogFn) override {
+                                       Logger*) override {
         ++sidecarCalls;
         lastAlbumDir = albumDir;
         std::filesystem::create_directories(albumDir);
@@ -51,7 +54,7 @@ public:
                   static_cast<std::streamsize>(art.bytes.size()));
         return p;
     }
-    void embed(const std::filesystem::path& mp3Path, const CoverArt&, LogFn) override {
+    void embed(const std::filesystem::path& mp3Path, const CoverArt&, Logger*) override {
         embedded.push_back(mp3Path);
         std::ofstream out(mp3Path.string() + ".embedded", std::ios::binary);
         out << "embedded";
@@ -67,13 +70,11 @@ public:
 
 TEST_CASE("RipService downloads cover then rips then embeds", "[cover]") {
     auto toc = std::make_shared<FakeTocReader>(makeTwoTrackDisc());
-    auto extractor = std::make_shared<FakeExtractor>();
-    auto encoder = std::make_shared<FakeEncoder>();
-    auto meta = std::make_shared<FakeMetadata>();
     auto coverProv = std::make_shared<FakeCoverProvider>(tinyJpeg());
     auto coverApp = std::make_shared<FakeCoverApplier>();
 
-    RipService rip(toc, extractor, encoder, meta, coverProv, coverApp);
+    RipService rip(toc, std::make_shared<FakeExtractor>(), std::make_shared<FakeEncoder>(),
+                   std::make_shared<FakeMetadata>(), coverProv, coverApp);
 
     Session session;
     session.selectDrive(DriveInfo{"/dev/sr0", "FAKE", 0});
@@ -83,22 +84,21 @@ TEST_CASE("RipService downloads cover then rips then embeds", "[cover]") {
     session.setArtist("Unit");
     session.setAlbum("CoverTest");
 
-    const auto results = rip.ripTracks(session, {1, 2});
+    Logger log(std::cerr, LogLevel::Off);
+    const auto results = rip.ripTracks(session, {1, 2}, &log);
     REQUIRE(results.size() == 2);
     REQUIRE(results[0].success);
     REQUIRE(results[1].success);
-
     REQUIRE(coverApp->sidecarCalls == 1);
     REQUIRE(coverApp->embedded.size() == 2);
     REQUIRE(std::filesystem::exists(coverApp->lastAlbumDir / "cover.jpg"));
-
     std::filesystem::remove_all(outRoot);
 }
 
 TEST_CASE("RipService skips cover when disabled", "[cover]") {
-    auto toc = std::make_shared<FakeTocReader>(makeTwoTrackDisc());
     auto coverApp = std::make_shared<FakeCoverApplier>();
-    RipService rip(toc, std::make_shared<FakeExtractor>(), std::make_shared<FakeEncoder>(),
+    RipService rip(std::make_shared<FakeTocReader>(makeTwoTrackDisc()),
+                   std::make_shared<FakeExtractor>(), std::make_shared<FakeEncoder>(),
                    std::make_shared<FakeMetadata>(), std::make_shared<FakeCoverProvider>(tinyJpeg()),
                    coverApp);
 
@@ -110,16 +110,15 @@ TEST_CASE("RipService skips cover when disabled", "[cover]") {
     session.setArtist("A");
     session.setAlbum("B");
 
-    const auto results = rip.ripTracks(session, {1});
-    REQUIRE(results[0].success);
+    REQUIRE(rip.ripTracks(session, {1})[0].success);
     REQUIRE(coverApp->sidecarCalls == 0);
     REQUIRE(coverApp->embedded.empty());
 }
 
 TEST_CASE("RipService continues when cover missing", "[cover]") {
-    auto toc = std::make_shared<FakeTocReader>(makeTwoTrackDisc());
     auto coverApp = std::make_shared<FakeCoverApplier>();
-    RipService rip(toc, std::make_shared<FakeExtractor>(), std::make_shared<FakeEncoder>(),
+    RipService rip(std::make_shared<FakeTocReader>(makeTwoTrackDisc()),
+                   std::make_shared<FakeExtractor>(), std::make_shared<FakeEncoder>(),
                    std::make_shared<FakeMetadata>(),
                    std::make_shared<FakeCoverProvider>(std::nullopt), coverApp);
 

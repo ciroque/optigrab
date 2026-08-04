@@ -30,6 +30,10 @@ void Application::applyLaunchArgs(const LaunchArgs& args) {
     if (args.fetchCoverArt) {
         ctx_->session.setFetchCoverArt(*args.fetchCoverArt);
     }
+    if (args.logLevel) {
+        ctx_->log.setLevel(*args.logLevel);
+        ctx_->log.debug(std::string("log level set to ") + toString(*args.logLevel));
+    }
     if (args.quality) {
         ctx_->session.setQuality(*args.quality);
     }
@@ -113,8 +117,8 @@ int Application::run(int argc, char** argv) {
     try {
         launch = parseLaunchArgs(argsVec);
     } catch (const OptigrabError& ex) {
-        ctx_->err << ex.what() << "\n";
-        ctx_->err << "Try: optigrab --help\n";
+        ctx_->log.error(ex.what());
+        ctx_->log.info("try: optigrab --help");
         return 1;
     }
 

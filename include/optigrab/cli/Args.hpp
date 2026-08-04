@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optigrab/domain/Types.hpp"
+#include "optigrab/log/LogLevel.hpp"
 
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@ struct LaunchArgs {
     std::optional<std::string> album;
     std::optional<std::string> coverPath;
     std::optional<bool> fetchCoverArt;
+    std::optional<LogLevel> logLevel;
     std::optional<QualityPreset> quality;
     std::optional<ExtractorKind> extractor;
     std::optional<EncoderKind> encoder;

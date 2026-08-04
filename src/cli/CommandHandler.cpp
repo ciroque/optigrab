@@ -21,6 +21,7 @@ std::unique_ptr<Command> makeSetExtractorCommand();
 std::unique_ptr<Command> makeSetEncoderCommand();
 std::unique_ptr<Command> makeSetCoverCommand();
 std::unique_ptr<Command> makeSetCoverArtCommand();
+std::unique_ptr<Command> makeSetLogLevelCommand();
 std::unique_ptr<Command> makeRipTrackCommand();
 std::unique_ptr<Command> makeHelpCommand();
 std::unique_ptr<Command> makeExitCommand();
@@ -37,7 +38,7 @@ void CommandHandler::addCommand(std::unique_ptr<Command> cmd) {
 
 bool CommandHandler::execute(Context& ctx, const std::string& line) {
     auto fail = [&](const std::string& msg) {
-        ctx.err << msg << "\n";
+        ctx.log.error(msg);
         if (ctx.exitCode == 0) {
             ctx.exitCode = 1;
         }
@@ -59,8 +60,8 @@ bool CommandHandler::execute(Context& ctx, const std::string& line) {
         if (tokens.size() == 1) {
             auto it = unary_.find(tokens[0]);
             if (it == unary_.end()) {
-                ctx.err << "Unknown command: " << tokens[0] << "\n";
-                ctx.err << "Type 'help' for a list of commands.\n";
+                ctx.log.error("unknown command: " + tokens[0]);
+                ctx.log.info("type 'help' for a list of commands");
                 if (ctx.exitCode == 0) {
                     ctx.exitCode = 1;
                 }
@@ -81,11 +82,11 @@ bool CommandHandler::execute(Context& ctx, const std::string& line) {
                 }
             }
             if (verbExists) {
-                ctx.err << "Unknown noun for verb '" << tokens[0] << "': " << tokens[1] << "\n";
+                ctx.log.error("unknown noun for verb '" + tokens[0] + "': " + tokens[1]);
             } else {
-                ctx.err << "Unknown command: " << key << "\n";
+                ctx.log.error("unknown command: " + key);
             }
-            ctx.err << "Type 'help' for a list of commands.\n";
+            ctx.log.info("type 'help' for a list of commands");
             if (ctx.exitCode == 0) {
                 ctx.exitCode = 1;
             }
@@ -127,6 +128,7 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeSetEncoderCommand());
     h.addCommand(makeSetCoverCommand());
     h.addCommand(makeSetCoverArtCommand());
+    h.addCommand(makeSetLogLevelCommand());
     h.addCommand(makeRipTrackCommand());
     h.addCommand(makeHelpCommand());
     h.addCommand(makeExitCommand());

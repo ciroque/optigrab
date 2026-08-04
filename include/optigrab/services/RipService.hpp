@@ -2,6 +2,7 @@
 
 #include "optigrab/domain/Session.hpp"
 #include "optigrab/domain/Types.hpp"
+#include "optigrab/log/Logger.hpp"
 #include "optigrab/ports/AudioEncoder.hpp"
 #include "optigrab/ports/AudioExtractor.hpp"
 #include "optigrab/ports/CoverArtApplier.hpp"
@@ -9,7 +10,6 @@
 #include "optigrab/ports/MetadataProvider.hpp"
 #include "optigrab/ports/TocReader.hpp"
 
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -24,8 +24,6 @@ struct RipResult {
 
 class RipService {
 public:
-    using LogFn = std::function<void(const std::string&)>;
-
     RipService(std::shared_ptr<TocReader> toc,
                std::shared_ptr<AudioExtractor> extractor,
                std::shared_ptr<AudioEncoder> encoder,
@@ -33,15 +31,12 @@ public:
                std::shared_ptr<CoverArtProvider> coverProvider = nullptr,
                std::shared_ptr<CoverArtApplier> coverApplier = nullptr);
 
-    void loadDisc(Session& session, LogFn log = {});
+    void loadDisc(Session& session, Logger* log = nullptr);
 
-    // Serial pipeline:
-    //   1) optional cover download
-    //   2) extract+encode all tracks
-    //   3) if cover: sidecar once + embed each successful MP3
+    // Serial: cover fetch → extract/encode all → sidecar + embed if cover exists.
     std::vector<RipResult> ripTracks(Session& session,
                                      const std::vector<int>& trackNumbers,
-                                     LogFn log = {});
+                                     Logger* log = nullptr);
 
 private:
     Tags makeTags(const Session& session, const TrackInfo& track, int trackTotal) const;

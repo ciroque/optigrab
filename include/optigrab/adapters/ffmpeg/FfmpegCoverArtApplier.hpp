@@ -11,9 +11,10 @@ public:
     explicit FfmpegCoverArtApplier(std::string binary = "ffmpeg");
 
     std::filesystem::path writeSidecar(const std::filesystem::path& albumDir, const CoverArt& art,
-                                       LogFn log = {}) override;
+                                       Logger* log = nullptr) override;
 
-    void embed(const std::filesystem::path& mp3Path, const CoverArt& art, LogFn log = {}) override;
+    void embed(const std::filesystem::path& mp3Path, const CoverArt& art,
+               Logger* log = nullptr) override;
 
     [[nodiscard]] std::string name() const override { return "ffmpeg"; }
 
