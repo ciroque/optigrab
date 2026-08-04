@@ -1,0 +1,33 @@
+# Build
+build/
+cmake-build-*/
+out/
+*.o
+*.a
+*.so
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.cache/
+compile_commands.json
+
+# Test / coverage
+*.gcda
+*.gcno
+*.gcov
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime artifacts
+*.wav
+*.mp3
+*.log
+/tmp_optigrab/
