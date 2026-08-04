@@ -1,6 +1,7 @@
 #include "optigrab/domain/DiscId.hpp"
 
 #include <array>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -8,6 +9,7 @@
 namespace optigrab {
 namespace {
 
+// SHA-1 used for MusicBrainz Disc ID (same digest as libdiscid).
 class Sha1 {
 public:
     Sha1() { reset(); }
@@ -22,6 +24,10 @@ public:
                 datalen_ = 0;
             }
         }
+    }
+
+    void update(const char* ascii) {
+        update(reinterpret_cast<const std::uint8_t*>(ascii), std::strlen(ascii));
     }
 
     std::array<std::uint8_t, 20> final() {
@@ -126,34 +132,62 @@ private:
     std::array<std::uint32_t, 5> state_{};
 };
 
-// MusicBrainz alphabet: + → .  / → _
-std::string mbBase64(const std::array<std::uint8_t, 20>& hash) {
-    static const char tbl[] =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._";
-    std::string out(28, '\0');
-    unsigned char in[21]{};
-    std::memcpy(in, hash.data(), 20);
-    int o = 0;
-    for (int i = 0; i < 18; i += 3) {
-        const unsigned n = (in[i] << 16) | (in[i + 1] << 8) | in[i + 2];
-        out[static_cast<std::size_t>(o++)] = tbl[(n >> 18) & 63];
-        out[static_cast<std::size_t>(o++)] = tbl[(n >> 12) & 63];
-        out[static_cast<std::size_t>(o++)] = tbl[(n >> 6) & 63];
-        out[static_cast<std::size_t>(o++)] = tbl[n & 63];
+// RFC822/libdiscid Base64 of SHA-1 with MusicBrainz alphabet:
+//   + → .   / → _   = → -
+// Always 28 characters for a 20-byte digest.
+std::string mbBase64(const std::array<std::uint8_t, 20>& digest) {
+    static const char kTbl[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve(28);
+
+    int i = 0;
+    for (; i + 2 < 20; i += 3) {
+        const unsigned n = (static_cast<unsigned>(digest[static_cast<std::size_t>(i)]) << 16) |
+                           (static_cast<unsigned>(digest[static_cast<std::size_t>(i + 1)]) << 8) |
+                           static_cast<unsigned>(digest[static_cast<std::size_t>(i + 2)]);
+        out.push_back(kTbl[(n >> 18) & 63]);
+        out.push_back(kTbl[(n >> 12) & 63]);
+        out.push_back(kTbl[(n >> 6) & 63]);
+        out.push_back(kTbl[n & 63]);
     }
-    const unsigned n = (in[18] << 16) | (in[19] << 8);
-    out[static_cast<std::size_t>(o++)] = tbl[(n >> 18) & 63];
-    out[static_cast<std::size_t>(o++)] = tbl[(n >> 12) & 63];
-    out[static_cast<std::size_t>(o++)] = tbl[(n >> 6) & 63];
-    out[static_cast<std::size_t>(o++)] = tbl[n & 63];
+    // 20 % 3 == 2 → two leftover bytes → three chars + one pad
+    const unsigned n = (static_cast<unsigned>(digest[18]) << 16) |
+                       (static_cast<unsigned>(digest[19]) << 8);
+    out.push_back(kTbl[(n >> 18) & 63]);
+    out.push_back(kTbl[(n >> 12) & 63]);
+    out.push_back(kTbl[(n >> 6) & 63]);
+    out.push_back('=');
+
+    for (char& c : out) {
+        if (c == '+') {
+            c = '.';
+        } else if (c == '/') {
+            c = '_';
+        } else if (c == '=') {
+            c = '-';
+        }
+    }
     return out;
 }
 
-void putBe32(std::uint8_t* p, std::uint32_t v) {
-    p[0] = static_cast<std::uint8_t>((v >> 24) & 0xff);
-    p[1] = static_cast<std::uint8_t>((v >> 16) & 0xff);
-    p[2] = static_cast<std::uint8_t>((v >> 8) & 0xff);
-    p[3] = static_cast<std::uint8_t>(v & 0xff);
+// libdiscid hashes *ASCII hex strings*, not raw binary:
+//   "%02X" first, "%02X" last, then 100 × "%08X" offsets[0..99]
+// offsets[0] = lead-out (sectors), offsets[n] = start of track n (CD frames).
+std::string hashDiscId(int first, int last, const std::array<std::uint32_t, 100>& offsets) {
+    Sha1 sha;
+    char tmp[16];
+
+    std::snprintf(tmp, sizeof(tmp), "%02X", first);
+    sha.update(tmp);
+    std::snprintf(tmp, sizeof(tmp), "%02X", last);
+    sha.update(tmp);
+
+    for (std::uint32_t off : offsets) {
+        std::snprintf(tmp, sizeof(tmp), "%08X", static_cast<unsigned>(off));
+        sha.update(tmp);
+    }
+    return mbBase64(sha.final());
 }
 
 }  // namespace
@@ -175,6 +209,8 @@ std::optional<std::string> computeMusicBrainzDiscId(const DiscInfo& disc) {
         return std::nullopt;
     }
 
+    // Frame offset = LBA + 150 (2-second pregap).
+    // offsets[0] = lead-out frame; offsets[track] = track start frame.
     std::array<std::uint32_t, 100> offsets{};
     for (const auto* t : audio) {
         if (t->number < 1 || t->number > 99) {
@@ -184,19 +220,28 @@ std::optional<std::string> computeMusicBrainzDiscId(const DiscInfo& disc) {
             static_cast<std::uint32_t>(t->startLba + 150);
     }
     const auto* lastTrack = audio.back();
+    // Lead-out = end of last audio track in frames.
     offsets[0] = static_cast<std::uint32_t>(lastTrack->startLba + lastTrack->sectors + 150);
 
-    Sha1 sha;
-    const std::uint8_t firstB = static_cast<std::uint8_t>(first);
-    const std::uint8_t lastB = static_cast<std::uint8_t>(last);
-    sha.update(&firstB, 1);
-    sha.update(&lastB, 1);
-    for (std::uint32_t off : offsets) {
-        std::uint8_t be[4];
-        putBe32(be, off);
-        sha.update(be, 4);
+    return hashDiscId(first, last, offsets);
+}
+
+// Test/helper: compute from raw first/last/leadout/track frame offsets (libdiscid layout).
+std::optional<std::string> computeMusicBrainzDiscIdFromOffsets(
+    int first, int last, std::uint32_t leadOutFrames,
+    const std::vector<std::uint32_t>& trackStartFrames) {
+    if (first < 1 || last < first || last > 99) {
+        return std::nullopt;
     }
-    return mbBase64(sha.final());
+    if (static_cast<int>(trackStartFrames.size()) != (last - first + 1)) {
+        return std::nullopt;
+    }
+    std::array<std::uint32_t, 100> offsets{};
+    offsets[0] = leadOutFrames;
+    for (int t = first; t <= last; ++t) {
+        offsets[static_cast<std::size_t>(t)] = trackStartFrames[static_cast<std::size_t>(t - first)];
+    }
+    return hashDiscId(first, last, offsets);
 }
 
 }  // namespace optigrab
