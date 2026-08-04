@@ -128,12 +128,12 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
             log("Looking up cover art via " + coverProvider_->name() + " ...");
         }
         try {
-            cover = coverProvider_->fetch(disc, session);
+            cover = coverProvider_->fetch(disc, session, log);
             if (cover && log) {
                 log("Cover art ready (" + cover->source + ", " +
                     std::to_string(cover->bytes.size()) + " bytes).");
             } else if (log) {
-                log("No cover art found (continuing without).");
+                log("No cover art found (continuing without). See diagnostics above.");
             }
         } catch (const std::exception& ex) {
             if (log) {
@@ -141,6 +141,10 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
             }
             cover.reset();
         }
+    } else if (log && !session.fetchCoverArt()) {
+        log("Cover art disabled (set coverart off / --no-cover).");
+    } else if (log && !coverProvider_) {
+        log("Cover art provider not configured.");
     }
 
     session.setRipInProgress(true);

@@ -6,13 +6,12 @@
 
 namespace optigrab {
 
-// MusicBrainz disc ID → Cover Art Archive front image via curl.
 class MusicBrainzCoverArtProvider : public CoverArtProvider {
 public:
     explicit MusicBrainzCoverArtProvider(std::string curlBinary = "curl");
 
-    [[nodiscard]] std::optional<CoverArt> fetch(const DiscInfo& disc,
-                                                const Session& session) override;
+    [[nodiscard]] std::optional<CoverArt> fetch(const DiscInfo& disc, const Session& session,
+                                                LogFn log = {}) override;
     [[nodiscard]] std::string name() const override { return "musicbrainz+caa"; }
 
 private:

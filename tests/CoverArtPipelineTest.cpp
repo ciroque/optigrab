@@ -26,7 +26,12 @@ CoverArt tinyJpeg() {
 class FakeCoverProvider : public CoverArtProvider {
 public:
     explicit FakeCoverProvider(std::optional<CoverArt> art) : art_(std::move(art)) {}
-    std::optional<CoverArt> fetch(const DiscInfo&, const Session&) override { return art_; }
+    std::optional<CoverArt> fetch(const DiscInfo&, const Session&, LogFn log) override {
+        if (log) {
+            log(art_ ? "  [fake] providing cover" : "  [fake] no cover by design");
+        }
+        return art_;
+    }
     std::string name() const override { return "fake-cover"; }
 
 private:
