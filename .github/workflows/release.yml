@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: optigrab-linux-x64
+          - os: windows-latest
+            artifact: optigrab-windows-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Version from tag
+        id: ver
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake pkg-config \
+            libcdio-dev libcdio-paranoia-dev
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DOPTIGRAB_VERSION="${{ steps.ver.outputs.version }}" \
+            -DOPTIGRAB_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          STAGE="dist/${{ matrix.artifact }}"
+          mkdir -p "$STAGE"
+          cp build/optigrab "$STAGE/"
+          cp README.md LICENSE "$STAGE/"
+          cat > "$STAGE/RUNTIME.txt" <<'EOF'
+          Runtime dependencies (install via your package manager):
+            - ffmpeg (with libmp3lame)
+            - cdparanoia (default extractor)
+            - libcdio / libcdio-paranoia (linked; needed at runtime if dynamic)
+          EOF
+          tar -C dist -czf "${{ matrix.artifact }}.tar.gz" "${{ matrix.artifact }}"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          STAGE="dist/${{ matrix.artifact }}"
+          mkdir -p "$STAGE"
+          BIN="build/Release/optigrab.exe"
+          if [[ ! -f "$BIN" ]]; then BIN="build/optigrab.exe"; fi
+          cp "$BIN" "$STAGE/"
+          cp README.md LICENSE "$STAGE/"
+          cat > "$STAGE/RUNTIME.txt" <<'EOF'
+          Runtime dependencies:
+            - ffmpeg on PATH (with libmp3lame), used for extract + encode
+          Device paths look like D: (drive letters).
+          Close other apps that lock the optical drive before ripping.
+          EOF
+          (cd dist && powershell -Command "Compress-Archive -Path '${{ matrix.artifact }}' -DestinationPath '${{ matrix.artifact }}.zip'")
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}.*
+          if-no-files-found: error
+
+  publish:
+    name: publish-github-release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect release files
+        shell: bash
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} release-files/ \;
+          ls -la release-files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
