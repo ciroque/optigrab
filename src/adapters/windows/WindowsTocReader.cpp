@@ -1,6 +1,7 @@
 #include "optigrab/adapters/windows/WindowsTocReader.hpp"
 
 #include "optigrab/domain/Errors.hpp"
+#include "optigrab/util/DeviceError.hpp"
 
 #ifdef _WIN32
 
@@ -44,22 +45,20 @@ DiscInfo WindowsTocReader::readToc(const std::string& devicePath) {
     HANDLE h = CreateFileA(ntPath.c_str(), GENERIC_READ,
                            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
     if (h == INVALID_HANDLE_VALUE) {
-        const DWORD err = GetLastError();
-        throw TocError("Failed to open device for TOC: " + devicePath + " (Win32 " +
-                       std::to_string(err) + ")");
+        throw TocError(describeDeviceFailure(devicePath, static_cast<int>(GetLastError()),
+                                             "Open optical device"));
     }
 
     CDROM_TOC toc{};
     DWORD bytes = 0;
     const BOOL ok =
         DeviceIoControl(h, IOCTL_CDROM_READ_TOC, nullptr, 0, &toc, sizeof(toc), &bytes, nullptr);
-    CloseHandle(h);
-
     if (!ok) {
         const DWORD err = GetLastError();
-        throw TocError("IOCTL_CDROM_READ_TOC failed on " + devicePath + " (Win32 " +
-                       std::to_string(err) + "). Is a disc inserted? Close other apps using the drive.");
+        CloseHandle(h);
+        throw TocError(describeDeviceFailure(devicePath, static_cast<int>(err), "Read TOC"));
     }
+    CloseHandle(h);
 
     DiscInfo disc;
     disc.devicePath = devicePath;

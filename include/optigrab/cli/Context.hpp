@@ -19,6 +19,7 @@ struct Context {
     std::ostream& out;
     std::ostream& err;
     bool shouldExit{false};
+    int exitCode{0};  // non-zero for scripted mode failures
 
     Context(std::shared_ptr<DriveEnumerator> driveEnum,
             std::shared_ptr<RipService> ripService,

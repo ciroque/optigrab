@@ -22,6 +22,13 @@ void ensureParent(const std::filesystem::path& path) {
     }
 }
 
+std::string trackLabel(const TrackInfo& track) {
+    if (!track.title.empty()) {
+        return track.title;
+    }
+    return "Track " + std::to_string(track.number);
+}
+
 }  // namespace
 
 RipService::RipService(std::shared_ptr<TocReader> toc,
@@ -42,7 +49,6 @@ void RipService::loadDisc(Session& session, LogFn log) {
     if (metadata_) {
         metadata_->enrich(disc);
     }
-    // Session overrides win for album/artist labeling.
     if (session.album()) {
         disc.album = *session.album();
     }
@@ -106,7 +112,8 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
     }
 
     const auto& disc = session.disc();
-    const int total = static_cast<int>(disc.tracks.size());
+    const int totalOnDisc = static_cast<int>(disc.tracks.size());
+    const int jobCount = static_cast<int>(trackNumbers.size());
     std::vector<RipResult> results;
     results.reserve(trackNumbers.size());
 
@@ -121,10 +128,12 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
             std::filesystem::temp_directory_path() / ("optigrab-" + std::to_string(pid));
         std::filesystem::create_directories(tmpDir);
 
+        int jobIndex = 0;
         for (int n : trackNumbers) {
+            ++jobIndex;
             RipResult result;
             result.trackNumber = n;
-            if (n < 1 || n > total) {
+            if (n < 1 || n > totalOnDisc) {
                 result.success = false;
                 result.message = "Track out of range";
                 results.push_back(std::move(result));
@@ -139,22 +148,36 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
                 continue;
             }
 
+            const std::string prefix =
+                "[" + std::to_string(jobIndex) + "/" + std::to_string(jobCount) + "] ";
+
             try {
-                const auto tags = makeTags(session, track, total);
+                const auto tags = makeTags(session, track, totalOnDisc);
                 const auto outMp3 = buildTrackPath(session.outputDirectory(), tags);
                 ensureParent(outMp3);
 
                 const auto wav = tmpDir / ("track-" + std::to_string(n) + ".wav");
                 if (log) {
-                    log("Extracting track " + std::to_string(n) + " via " + extractor_->name() +
-                        " ...");
+                    log(prefix + "Extracting \"" + trackLabel(track) + "\" via " +
+                        extractor_->name() + " ...");
                 }
-                extractor_->extractTrack(session.selectedDrive().path, track, wav, log);
+                extractor_->extractTrack(session.selectedDrive().path, track, wav,
+                                         [&](const std::string& m) {
+                                             if (log) {
+                                                 log(m);
+                                             }
+                                         });
 
                 if (log) {
-                    log("Encoding track " + std::to_string(n) + " via " + encoder_->name() + " ...");
+                    log(prefix + "Encoding via " + encoder_->name() + " (" +
+                        toString(session.quality()) + ") ...");
                 }
-                encoder_->encode(wav, outMp3, tags, session.quality(), log);
+                encoder_->encode(wav, outMp3, tags, session.quality(),
+                                 [&](const std::string& m) {
+                                     if (log) {
+                                         log(m);
+                                     }
+                                 });
 
                 std::error_code ec;
                 std::filesystem::remove(wav, ec);
@@ -163,13 +186,13 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
                 result.outputPath = outMp3;
                 result.message = "OK";
                 if (log) {
-                    log("Wrote " + outMp3.string());
+                    log(prefix + "Wrote " + outMp3.string());
                 }
             } catch (const std::exception& ex) {
                 result.success = false;
                 result.message = ex.what();
                 if (log) {
-                    log("Track " + std::to_string(n) + " failed: " + ex.what());
+                    log(prefix + "FAILED: " + ex.what());
                 }
             }
             results.push_back(std::move(result));

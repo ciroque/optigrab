@@ -35,7 +35,9 @@ set(OPTIGRAB_COMMON_SOURCES
   src/services/Filename.cpp
   src/services/RipService.cpp
   src/util/Process.cpp
+  src/util/DeviceError.cpp
   src/cli/Tokenizer.cpp
+  src/cli/Args.cpp
   src/cli/History.cpp
   src/cli/LineReader.cpp
   src/cli/DriveSelection.cpp
@@ -131,6 +133,8 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/FakeAdaptersTest.cpp
     tests/HistoryTest.cpp
     tests/DriveSelectionTest.cpp
+    tests/ArgsTest.cpp
+    tests/DeviceErrorTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)
   target_include_directories(optigrab_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)

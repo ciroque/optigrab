@@ -47,6 +47,9 @@ public:
             }
         }
         ctx.out << "Done. " << ok << " succeeded, " << fail << " failed.\n";
+        if (fail > 0 && ctx.exitCode == 0) {
+            ctx.exitCode = 2;
+        }
     }
     [[nodiscard]] std::string name() const override { return "rip track"; }
 };

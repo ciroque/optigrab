@@ -79,6 +79,8 @@ void LibcdioParanoiaExtractor::extractTrack(const std::string& devicePath,
     out.write(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
 
     uint32_t dataBytes = 0;
+    const lsn_t totalSectors = last - first + 1;
+    int lastPct = -1;
     cdio_paranoia_seek(p, first, SEEK_SET);
     for (lsn_t s = first; s <= last; ++s) {
         int16_t* buf = cdio_paranoia_read(p, nullptr);
@@ -89,9 +91,15 @@ void LibcdioParanoiaExtractor::extractTrack(const std::string& devicePath,
         }
         out.write(reinterpret_cast<const char*>(buf), CDIO_CD_FRAMESIZE_RAW);
         dataBytes += CDIO_CD_FRAMESIZE_RAW;
-        if (progress && ((s - first) % 75 == 0)) {
-            progress("  sector " + std::to_string(s - first) + "/" +
-                     std::to_string(last - first + 1));
+        if (progress && totalSectors > 0) {
+            const auto done = static_cast<long long>(s - first + 1);
+            const int pct = static_cast<int>((done * 100) / totalSectors);
+            // ~1% or every 75 sectors (1 second of CD audio), whichever fires.
+            if (pct != lastPct && (pct == 100 || pct >= lastPct + 1 || (s - first) % 75 == 0)) {
+                lastPct = pct;
+                progress("  extract " + std::to_string(pct) + "% (" + std::to_string(done) + "/" +
+                         std::to_string(totalSectors) + " sectors)");
+            }
         }
     }
 

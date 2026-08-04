@@ -7,7 +7,10 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 ## Features
 
 - Interactive **VERB → NOUN** REPL (`list drive`, `select drive`, `rip track`, …)
+- **One-shot / scriptable** mode (same verbs as flags + command on the argv)
 - Command history with **↑ / ↓** (TTY / console)
+- **Progress** while ripping: `[n/N]` per track, extract %, encode phase
+- **Actionable device errors** (permissions, busy drive, empty tray, …)
 - Swappable backends via clean ports:
   - **Linux extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
   - **Windows extract:** `ffmpeg` (default)
@@ -51,6 +54,8 @@ cmake -S . -B build -DOPTIGRAB_VERSION=0.2.0
 
 ## Usage
 
+### Interactive
+
 ```text
 $ optigrab
 OPTIGRAB> list drive
@@ -62,6 +67,35 @@ OPTIGRAB> list track
 OPTIGRAB> rip track all
 OPTIGRAB> exit
 ```
+
+With a single drive, selection is automatic at startup (and when a command needs a drive).
+
+### One-shot (scriptable)
+
+Same VERB NOUN grammar after optional flags — no REPL:
+
+```bash
+optigrab list drive
+optigrab --drive 0 list track
+optigrab --drive 0 \
+  --out ~/Music \
+  --artist "The Band" \
+  --album "Music From Big Pink" \
+  --quality V0 \
+  rip track all
+```
+
+| Flag | Meaning |
+|------|---------|
+| `--drive <n\|path>` | Select drive |
+| `--out <dir>` | Output directory |
+| `--artist` / `--album` | Tag + folder overrides |
+| `--quality` | `V0` `V2` `192` `256` `320` |
+| `--extractor` | Platform-dependent (`ffmpeg`, …) |
+| `--encoder` | `ffmpeg` |
+| `-h` / `--help` / `--version` | Meta |
+
+Exit codes: `0` ok, `1` usage/command error, `2` rip completed with track failures.
 
 ### Commands
 
@@ -112,6 +146,42 @@ Track/file names use:
 3. Fallbacks: `Track NN`, `Unknown Artist`, `Unknown Album`
 
 No MusicBrainz lookup yet.
+
+## Cover art & richer tags (what “feature 10” looks like)
+
+Not implemented yet — sketch for when we do it:
+
+| Piece | Approach |
+|-------|----------|
+| **Data** | Extend `Tags` with optional `year`, `genre`, `discNumber`/`discTotal`, and `coverArtPath` or in-memory JPEG/PNG bytes |
+| **Source** | MusicBrainz / Cover Art Archive after disc-id lookup, or `set cover <file.jpg>`, or user drop-in `cover.jpg` next to output |
+| **Write** | ffmpeg already accepts `-metadata`; for **APIC embedded art**, either a second pass with a tagger (e.g. TagLib) or ffmpeg’s video-attached-picture pattern (`-i cover.jpg -map 0 -map 1 -c copy -c:v:1 mjpeg …`) |
+| **Port** | Keep `MetadataProvider` for text; add optional `CoverArtProvider` so network/file sources stay swappable |
+| **UX** | `set cover …`, auto-fetch flag later; never block a rip if art fails |
+
+Keep it thin: tags that players care about, not a full library manager.
+
+## Roadmap
+
+Planned / nice-to-have (not scheduled):
+
+1. **MusicBrainz (or similar) metadata lookup** — disc ID → titles/artist/album  
+2. ~~Clearer device errors~~ — **done**  
+3. ~~Progress while ripping~~ — **done**  
+4. **Cancel / interrupt a rip cleanly** (Ctrl-C mid-job, keep finished tracks)  
+5. **Dry-run + preview naming** before spinning the laser  
+6. **Persistent settings** (+ optional history file across runs)  
+7. **Gap / pregap handling** (optional, explicit)  
+8. **Light verify after rip** (length/sanity; not full AccurateRip theater)  
+9. ~~Scriptable one-shot mode~~ — **done**  
+10. **Cover art + richer tags** — see section above  
+11. Eject / close tray verbs  
+12. Multi-disc disc-number tags  
+13. Pipeline extract ‖ encode  
+14. Windows extract without ffmpeg libcdio demuxer quirks  
+15. CUE/log export for archival  
+
+Deliberately out of scope for now: plugin frameworks, GUI, multi-format matrix as core, heavy AccurateRip graphs.
 
 ## License
 

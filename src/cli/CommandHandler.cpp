@@ -33,36 +33,44 @@ void CommandHandler::addCommand(std::unique_ptr<Command> cmd) {
     }
 }
 
-void CommandHandler::execute(Context& ctx, const std::string& line) {
+bool CommandHandler::execute(Context& ctx, const std::string& line) {
+    auto fail = [&](const std::string& msg) {
+        ctx.err << msg << "\n";
+        if (ctx.exitCode == 0) {
+            ctx.exitCode = 1;
+        }
+        return false;
+    };
+
     std::vector<std::string> tokens;
     try {
         tokens = tokenize(line);
     } catch (const OptigrabError& ex) {
-        ctx.err << ex.what() << "\n";
-        return;
+        return fail(ex.what());
     }
 
     if (tokens.empty()) {
-        return;
+        return true;
     }
 
     try {
         if (tokens.size() == 1) {
             auto it = unary_.find(tokens[0]);
             if (it == unary_.end()) {
-                // Allow "help" style; also try as unknown
                 ctx.err << "Unknown command: " << tokens[0] << "\n";
                 ctx.err << "Type 'help' for a list of commands.\n";
-                return;
+                if (ctx.exitCode == 0) {
+                    ctx.exitCode = 1;
+                }
+                return false;
             }
             it->second->execute(ctx, tokens);
-            return;
+            return ctx.exitCode == 0;
         }
 
         const std::string key = tokens[0] + " " + tokens[1];
         auto it = commands_.find(key);
         if (it == commands_.end()) {
-            // Verb known but noun wrong?
             bool verbExists = false;
             for (const auto& [name, _] : commands_) {
                 if (name.rfind(tokens[0] + " ", 0) == 0) {
@@ -76,13 +84,17 @@ void CommandHandler::execute(Context& ctx, const std::string& line) {
                 ctx.err << "Unknown command: " << key << "\n";
             }
             ctx.err << "Type 'help' for a list of commands.\n";
-            return;
+            if (ctx.exitCode == 0) {
+                ctx.exitCode = 1;
+            }
+            return false;
         }
         it->second->execute(ctx, tokens);
+        return ctx.exitCode == 0;
     } catch (const OptigrabError& ex) {
-        ctx.err << ex.what() << "\n";
+        return fail(ex.what());
     } catch (const std::exception& ex) {
-        ctx.err << "Error: " << ex.what() << "\n";
+        return fail(std::string("Error: ") + ex.what());
     }
 }
 

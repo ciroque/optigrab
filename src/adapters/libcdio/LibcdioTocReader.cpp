@@ -1,6 +1,11 @@
 #include "optigrab/adapters/libcdio/LibcdioTocReader.hpp"
 
 #include "optigrab/domain/Errors.hpp"
+#include "optigrab/util/DeviceError.hpp"
+
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 
 extern "C" {
 #include <cdio/cdio.h>
@@ -9,14 +14,31 @@ extern "C" {
 }
 
 namespace optigrab {
+namespace {
+
+void throwIfCannotOpen(const std::string& devicePath) {
+    // Probe open so we can surface errno-based hints (cdio_open is opaque).
+    const int fd = ::open(devicePath.c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        throw TocError(describeDeviceFailure(devicePath, errno, "Open optical device"));
+    }
+    ::close(fd);
+}
+
+}  // namespace
 
 DiscInfo LibcdioTocReader::readToc(const std::string& devicePath) {
+    throwIfCannotOpen(devicePath);
+
     CdIo_t* cdio = cdio_open(devicePath.c_str(), DRIVER_DEVICE);
     if (!cdio) {
         cdio = cdio_open(devicePath.c_str(), DRIVER_UNKNOWN);
     }
     if (!cdio) {
-        throw TocError("Failed to open device for TOC: " + devicePath);
+        // open() succeeded but libcdio failed — often empty tray / not ready.
+        throw TocError(
+            "Failed to open device for TOC: " + devicePath +
+            "\n  hint: Is an audio CD inserted and ready? Close other apps using the drive.");
     }
 
     DiscInfo disc;

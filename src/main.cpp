@@ -1,7 +1,6 @@
 #include "optigrab/app/Application.hpp"
 
-int main() {
+int main(int argc, char** argv) {
     optigrab::Application app;
-    app.run();
-    return 0;
+    return app.run(argc, argv);
 }

@@ -13,7 +13,8 @@ namespace optigrab {
 class CommandHandler {
 public:
     void addCommand(std::unique_ptr<Command> cmd);
-    void execute(Context& ctx, const std::string& line);
+    // Returns true on success. On failure, prints to ctx.err and sets ctx.exitCode if still 0.
+    bool execute(Context& ctx, const std::string& line);
     [[nodiscard]] std::vector<std::string> registeredCommands() const;
 
 private:
