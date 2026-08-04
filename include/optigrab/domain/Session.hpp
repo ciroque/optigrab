@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optigrab/domain/Types.hpp"
+#include "optigrab/platform/Platform.hpp"
 
 #include <optional>
 #include <string>
@@ -45,7 +46,7 @@ private:
     QualityPreset quality_{QualityPreset::V0};
     std::optional<std::string> artist_;
     std::optional<std::string> album_;
-    ExtractorKind extractor_{ExtractorKind::Cdparanoia};
+    ExtractorKind extractor_{defaultExtractor()};
     EncoderKind encoder_{EncoderKind::Ffmpeg};
     bool ripInProgress_{false};
 };

@@ -30,11 +30,25 @@ QualityPreset parseQuality(const std::string& s) {
 
 ExtractorKind parseExtractor(const std::string& s) {
     if (s == "ffmpeg") return ExtractorKind::Ffmpeg;
-    if (s == "cdparanoia") return ExtractorKind::Cdparanoia;
-    if (s == "libcdio" || s == "libcdio_paranoia" || s == "paranoia") {
-        return ExtractorKind::LibcdioParanoia;
+    if (s == "cdparanoia") {
+#ifdef _WIN32
+        throw ParseError("cdparanoia is not available on Windows (use ffmpeg)");
+#else
+        return ExtractorKind::Cdparanoia;
+#endif
     }
+    if (s == "libcdio" || s == "libcdio_paranoia" || s == "paranoia") {
+#ifdef _WIN32
+        throw ParseError("libcdio extractor is not available in this Windows build (use ffmpeg)");
+#else
+        return ExtractorKind::LibcdioParanoia;
+#endif
+    }
+#ifdef _WIN32
+    throw ParseError("Unknown extractor: " + s + " (ffmpeg)");
+#else
     throw ParseError("Unknown extractor: " + s + " (ffmpeg, cdparanoia, libcdio)");
+#endif
 }
 
 EncoderKind parseEncoder(const std::string& s) {
