@@ -1,5 +1,7 @@
 #include "optigrab/app/Application.hpp"
 
+#include "optigrab/cli/LineReader.hpp"
+
 #include <iostream>
 
 namespace optigrab {
@@ -11,21 +13,32 @@ Application::Application()
 
 void Application::run() {
     ctx_->out << "optigrab " << "0.1.0" << " — type 'help', 'exit' to quit\n";
-    ctx_->out << "OPTIGRAB> ";
-    std::string line;
-    while (!ctx_->shouldExit && std::getline(std::cin, line)) {
-        if (!line.empty()) {
-            handler_.execute(*ctx_, line);
+
+    LineReader reader(history_, ctx_->out, std::cin);
+    constexpr const char* kPrompt = "OPTIGRAB> ";
+
+    while (!ctx_->shouldExit) {
+        const auto line = reader.readLine(kPrompt);
+        if (!line) {
+            break;  // EOF
         }
-        if (ctx_->shouldExit) {
-            break;
+        if (line->empty()) {
+            continue;
         }
-        ctx_->out << "OPTIGRAB> ";
+        history_.add(*line);
+        handler_.execute(*ctx_, *line);
     }
 }
 
-void Application::executeLine(const std::string& line) { handler_.execute(*ctx_, line); }
+void Application::executeLine(const std::string& line) {
+    if (!line.empty()) {
+        history_.add(line);
+    }
+    handler_.execute(*ctx_, line);
+}
 
 Context& Application::context() { return *ctx_; }
+
+History& Application::history() { return history_; }
 
 }  // namespace optigrab

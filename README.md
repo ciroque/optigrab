@@ -58,6 +58,7 @@ OPTIGRAB> exit
 | `set extractor <ffmpeg\|cdparanoia\|libcdio>` | Swap extractor |
 | `set encoder <ffmpeg>` | Swap encoder |
 | `help` / `cls` / `exit` | Shell utilities |
+| ↑ / ↓ | Recall previous commands (TTY only) |
 
 ## Architecture
 

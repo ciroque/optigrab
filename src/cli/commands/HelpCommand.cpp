@@ -28,6 +28,9 @@ Commands:
   cls                     Clear screen
   exit                    Quit
 
+Input:
+  Up / Down               Recall previous commands
+
 Examples:
   list drive
   select drive 0

@@ -27,6 +27,8 @@ add_library(optigrab_lib
   src/services/Filename.cpp
   src/services/RipService.cpp
   src/cli/Tokenizer.cpp
+  src/cli/History.cpp
+  src/cli/LineReader.cpp
   src/cli/CommandHandler.cpp
   src/cli/commands/ListCommand.cpp
   src/cli/commands/SelectCommand.cpp
@@ -92,6 +94,7 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/CommandHandlerTest.cpp
     tests/RipServiceTest.cpp
     tests/FakeAdaptersTest.cpp
+    tests/HistoryTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)
   target_include_directories(optigrab_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
