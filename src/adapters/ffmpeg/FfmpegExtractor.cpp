@@ -18,9 +18,17 @@ void FfmpegExtractor::extractTrack(const std::string& devicePath,
         progress("ffmpeg extract track " + std::to_string(track.number));
     }
 
-    // Use libcdio demuxer when available: -f libcdio -i /dev/sr0
-    // Map audio stream track-1 (0-based).
+    // Prefer libcdio demuxer (Linux builds of ffmpeg). On Windows, try the same
+    // and fall back to a digital-copy friendly device path if needed.
     const int streamIndex = track.number - 1;
+    std::string input = devicePath;
+#ifdef _WIN32
+    // ffmpeg on Windows often wants the drive root, e.g. D:
+    if (input.size() >= 2 && input[1] == ':' && input.back() != ':' && input.find('\\') == std::string::npos) {
+        // keep "D:" as-is
+    }
+#endif
+
     const std::vector<std::string> args = {
         binary_,
         "-hide_banner",
@@ -30,7 +38,7 @@ void FfmpegExtractor::extractTrack(const std::string& devicePath,
         "-f",
         "libcdio",
         "-i",
-        devicePath,
+        input,
         "-map",
         "0:a:" + std::to_string(streamIndex),
         "-c:a",

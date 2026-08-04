@@ -12,7 +12,10 @@ Application::Application()
       handler_(makeDefaultCommandHandler()) {}
 
 void Application::run() {
-    ctx_->out << "optigrab " << "0.1.0" << " — type 'help', 'exit' to quit\n";
+#ifndef OPTIGRAB_VERSION_STRING
+#define OPTIGRAB_VERSION_STRING "dev"
+#endif
+    ctx_->out << "optigrab " << OPTIGRAB_VERSION_STRING << " — type 'help', 'exit' to quit\n";
 
     LineReader reader(history_, ctx_->out, std::cin);
     constexpr const char* kPrompt = "OPTIGRAB> ";

@@ -3,10 +3,14 @@
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/services/Filename.hpp"
 
-#include <chrono>
 #include <filesystem>
 #include <fstream>
+
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace optigrab {
 namespace {
@@ -108,8 +112,13 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
 
     session.setRipInProgress(true);
     try {
+#ifdef _WIN32
+        const auto pid = static_cast<long>(::_getpid());
+#else
+        const auto pid = static_cast<long>(::getpid());
+#endif
         const auto tmpDir =
-            std::filesystem::temp_directory_path() / ("optigrab-" + std::to_string(::getpid()));
+            std::filesystem::temp_directory_path() / ("optigrab-" + std::to_string(pid));
         std::filesystem::create_directories(tmpDir);
 
         for (int n : trackNumbers) {
