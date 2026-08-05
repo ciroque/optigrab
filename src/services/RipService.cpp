@@ -103,7 +103,8 @@ Tags RipService::makeTags(const Session& session, const TrackInfo& track, int tr
 
 std::vector<RipResult> RipService::ripTracks(Session& session,
                                              const std::vector<int>& trackNumbers,
-                                             Logger* log) {
+                                             Logger* log,
+                                             CoverMissingPromptFn onCoverMissingAsk) {
     if (session.ripInProgress()) {
         throw SessionError("A rip is already in progress");
     }
@@ -122,7 +123,9 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
     results.reserve(trackNumbers.size());
 
     std::optional<CoverArt> cover;
+    bool coverLookupAttempted = false;
     if (session.fetchCoverArt() && coverProvider_) {
+        coverLookupAttempted = true;
         if (log) {
             log->info("looking up cover art via " + coverProvider_->name());
         }
@@ -134,12 +137,11 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
                               std::to_string(cover->bytes.size()) + " bytes)");
                 }
             } else if (log) {
-                log->warn("no cover art found (continuing without)");
+                log->warn("no cover art found");
             }
         } catch (const std::exception& ex) {
             if (log) {
-                log->error(std::string("cover art lookup failed: ") + ex.what() +
-                           " (continuing)");
+                log->error(std::string("cover art lookup failed: ") + ex.what());
             }
             cover.reset();
         }
@@ -147,6 +149,42 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
         log->info("cover art disabled");
     } else if (log && !coverProvider_) {
         log->debug("cover art provider not configured");
+    }
+
+    // covermissing policy applies only when we tried to get art and got nothing.
+    if (coverLookupAttempted && !cover) {
+        const auto policy = session.coverMissingPolicy();
+        if (log) {
+            log->debug(std::string("covermissing policy: ") + toString(policy));
+        }
+        switch (policy) {
+        case CoverMissingPolicy::Continue:
+            if (log) {
+                log->warn("continuing rip without cover art");
+            }
+            break;
+        case CoverMissingPolicy::Abort:
+            throw SessionError(
+                "Cover art not found (covermissing=abort). "
+                "Set a local cover, fix lookup, or: set covermissing continue");
+        case CoverMissingPolicy::Ask:
+            if (onCoverMissingAsk) {
+                if (log) {
+                    log->info("cover art missing — prompting user");
+                }
+                if (!onCoverMissingAsk()) {
+                    throw SessionError("Rip aborted: no cover art (user declined to continue)");
+                }
+                if (log) {
+                    log->warn("continuing rip without cover art (user confirmed)");
+                }
+            } else {
+                throw SessionError(
+                    "Cover art not found (covermissing=ask) and no interactive prompt available. "
+                    "Use --cover-missing continue|abort, or run in a TTY");
+            }
+            break;
+        }
     }
 
     session.setRipInProgress(true);

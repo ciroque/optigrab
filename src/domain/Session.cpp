@@ -62,6 +62,10 @@ void Session::setFetchCoverArt(bool enabled) { fetchCoverArt_ = enabled; }
 
 bool Session::fetchCoverArt() const { return fetchCoverArt_; }
 
+void Session::setCoverMissingPolicy(CoverMissingPolicy policy) { coverMissingPolicy_ = policy; }
+
+CoverMissingPolicy Session::coverMissingPolicy() const { return coverMissingPolicy_; }
+
 void Session::setExtractor(ExtractorKind kind) { extractor_ = kind; }
 
 void Session::setEncoder(EncoderKind kind) { encoder_ = kind; }

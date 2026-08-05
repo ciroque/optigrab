@@ -57,6 +57,7 @@ std::string usageText() {
         << "  --album <name>         Album title override\n"
         << "  --cover <image>        Local cover image (skip network if set)\n"
         << "  --no-cover             Disable cover art fetch/embed\n"
+        << "  --cover-missing <p>    ask|continue|abort when no cover (default: ask)\n"
         << "  --log-level <level>    trace|debug|info|warn|error|fatal|off (default: info)\n"
         << "  --quality <preset>     V0 | V2 | 192 | 256 | 320\n";
 #ifdef _WIN32
@@ -123,6 +124,20 @@ LaunchArgs parseLaunchArgs(const std::vector<std::string>& argv) {
         }
         if (a == "--no-cover") {
             out.fetchCoverArt = false;
+            ++i;
+            continue;
+        }
+        if (a == "--cover-missing" || a == "--covermissing") {
+            const auto v = requireValue(argv, i, a);
+            if (v == "ask") {
+                out.coverMissing = CoverMissingPolicy::Ask;
+            } else if (v == "continue" || v == "cont") {
+                out.coverMissing = CoverMissingPolicy::Continue;
+            } else if (v == "abort" || v == "stop" || v == "fail") {
+                out.coverMissing = CoverMissingPolicy::Abort;
+            } else {
+                throw ParseError("Unknown --cover-missing value: " + v + " (ask|continue|abort)");
+            }
             ++i;
             continue;
         }

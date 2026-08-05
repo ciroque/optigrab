@@ -30,6 +30,12 @@ void Application::applyLaunchArgs(const LaunchArgs& args) {
     if (args.fetchCoverArt) {
         ctx_->session.setFetchCoverArt(*args.fetchCoverArt);
     }
+    if (args.coverMissing) {
+        ctx_->session.setCoverMissingPolicy(*args.coverMissing);
+    } else if (!args.interactive) {
+        // One-shot default: ask (session already defaults to ask; restate for clarity).
+        ctx_->session.setCoverMissingPolicy(CoverMissingPolicy::Ask);
+    }
     if (args.logLevel) {
         ctx_->log.setLevel(*args.logLevel);
         ctx_->log.debug(std::string("log level set to ") + toString(*args.logLevel));

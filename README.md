@@ -95,6 +95,7 @@ optigrab --drive 0 \
 | `--artist` / `--album` | Tag + folder overrides |
 | `--cover <image>` | Local cover image (used instead of network when set) |
 | `--no-cover` | Skip cover download/embed |
+| `--cover-missing <p>` | `ask` (default) \| `continue` \| `abort` when no cover |
 | `--log-level <level>` | `trace` `debug` `info` `warn` `error` `fatal` `off` |
 | `--quality` | `V0` `V2` `192` `256` `320` |
 | `--extractor` | Platform-dependent (`ffmpeg`, …) |
@@ -164,9 +165,15 @@ Serial pipeline (no worker threads):
 ```text
 set cover ~/Pictures/front.jpg    # optional local override
 set coverart off                  # disable entirely
+set covermissing ask|continue|abort   # default: ask
 # or: optigrab --cover art.jpg rip track all
+# or: optigrab --cover-missing continue rip track all
 # or: optigrab --no-cover rip track all
 ```
+
+If cover lookup fails and `covermissing=ask` (default), the REPL prompts  
+`No cover art available. Continue rip without cover? [Y/n]`.  
+Non-TTY one-shot with `ask` aborts unless you pass `--cover-missing continue` or `abort`.
 
 Runtime: `curl` and `ffmpeg` on `PATH` for network cover + embed. Missing art never fails the rip.
 

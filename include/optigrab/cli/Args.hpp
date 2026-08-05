@@ -20,6 +20,8 @@ struct LaunchArgs {
     std::optional<std::string> album;
     std::optional<std::string> coverPath;
     std::optional<bool> fetchCoverArt;
+    // Default for one-shot: ask (applied when not interactive if unset still Ask via session).
+    std::optional<CoverMissingPolicy> coverMissing;
     std::optional<LogLevel> logLevel;
     std::optional<QualityPreset> quality;
     std::optional<ExtractorKind> extractor;

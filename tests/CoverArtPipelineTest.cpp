@@ -128,6 +128,7 @@ TEST_CASE("RipService continues when cover missing", "[cover]") {
         (std::filesystem::temp_directory_path() / "optigrab-cover-none").string());
     session.setArtist("A");
     session.setAlbum("B");
+    session.setCoverMissingPolicy(CoverMissingPolicy::Continue);
 
     REQUIRE(rip.ripTracks(session, {1})[0].success);
     REQUIRE(coverApp->sidecarCalls == 0);

@@ -193,6 +193,27 @@ public:
     [[nodiscard]] std::string name() const override { return "set loglevel"; }
 };
 
+class SetCoverMissingCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError("Usage: set covermissing <ask|continue|abort>");
+        }
+        const auto& v = tokens[2];
+        if (v == "ask") {
+            ctx.session.setCoverMissingPolicy(CoverMissingPolicy::Ask);
+        } else if (v == "continue" || v == "cont") {
+            ctx.session.setCoverMissingPolicy(CoverMissingPolicy::Continue);
+        } else if (v == "abort" || v == "stop" || v == "fail") {
+            ctx.session.setCoverMissingPolicy(CoverMissingPolicy::Abort);
+        } else {
+            throw ParseError("Unknown covermissing value: " + v + " (ask|continue|abort)");
+        }
+        ctx.out << "Cover missing policy: " << toString(ctx.session.coverMissingPolicy()) << "\n";
+    }
+    [[nodiscard]] std::string name() const override { return "set covermissing"; }
+};
+
 }  // namespace
 
 std::unique_ptr<Command> makeSetOutCommand() { return std::make_unique<SetOutCommand>(); }
@@ -206,6 +227,9 @@ std::unique_ptr<Command> makeSetEncoderCommand() { return std::make_unique<SetEn
 std::unique_ptr<Command> makeSetCoverCommand() { return std::make_unique<SetCoverCommand>(); }
 std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetCoverArtCommand>(); }
 std::unique_ptr<Command> makeSetLogLevelCommand() { return std::make_unique<SetLogLevelCommand>(); }
+std::unique_ptr<Command> makeSetCoverMissingCommand() {
+    return std::make_unique<SetCoverMissingCommand>();
+}
 
 }  // namespace optigrab
 

@@ -29,6 +29,7 @@ public:
   set album <name>        Album name (tags + folder naming)
   set cover <path>|none   Local cover image (preferred over network)
   set coverart on|off     Enable/disable cover download+embed
+  set covermissing <p>    ask|continue|abort if no cover (default: ask)
   set loglevel <level>    trace|debug|info|warn|error|fatal|off
 )";
 #ifdef _WIN32

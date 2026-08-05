@@ -1,5 +1,6 @@
 #include "optigrab/cli/Command.hpp"
 #include "optigrab/cli/DriveSelection.hpp"
+#include "optigrab/cli/Prompt.hpp"
 
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/domain/TrackRange.hpp"
@@ -32,7 +33,14 @@ public:
         const int maxTrack = static_cast<int>(ctx.session.disc().tracks.size());
         const auto tracks = parseTrackRange(spec.str(), maxTrack);
 
-        const auto results = ctx.ripper->ripTracks(ctx.session, tracks, &ctx.log);
+        RipService::CoverMissingPromptFn askFn;
+        if (stdinIsInteractive()) {
+            askFn = []() {
+                return promptYesNo("No cover art available. Continue rip without cover?", true);
+            };
+        }
+
+        const auto results = ctx.ripper->ripTracks(ctx.session, tracks, &ctx.log, askFn);
 
         int ok = 0;
         int fail = 0;

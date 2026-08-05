@@ -47,6 +47,7 @@ set(OPTIGRAB_COMMON_SOURCES
   src/cli/Args.cpp
   src/cli/History.cpp
   src/cli/LineReader.cpp
+  src/cli/Prompt.cpp
   src/cli/DriveSelection.cpp
   src/cli/CommandHandler.cpp
   src/cli/commands/ListCommand.cpp
@@ -146,6 +147,7 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/CoverArtPipelineTest.cpp
     tests/LoggerTest.cpp
     tests/MbReleaseParseTest.cpp
+    tests/CoverMissingPolicyTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)
   target_include_directories(optigrab_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)

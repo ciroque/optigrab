@@ -63,6 +63,13 @@ enum class QualityPreset {
     Cbr320,
 };
 
+// When cover lookup finds nothing (and cover fetch is enabled).
+enum class CoverMissingPolicy {
+    Ask,       // prompt if TTY; otherwise abort
+    Continue,  // warn and rip without cover
+    Abort,     // stop before extract
+};
+
 inline const char* toString(ExtractorKind k) {
     switch (k) {
     case ExtractorKind::Ffmpeg: return "ffmpeg";
@@ -86,6 +93,15 @@ inline const char* toString(QualityPreset q) {
     case QualityPreset::Cbr192: return "192";
     case QualityPreset::Cbr256: return "256";
     case QualityPreset::Cbr320: return "320";
+    }
+    return "unknown";
+}
+
+inline const char* toString(CoverMissingPolicy p) {
+    switch (p) {
+    case CoverMissingPolicy::Ask: return "ask";
+    case CoverMissingPolicy::Continue: return "continue";
+    case CoverMissingPolicy::Abort: return "abort";
     }
     return "unknown";
 }

@@ -40,6 +40,10 @@ public:
     void setFetchCoverArt(bool enabled);
     [[nodiscard]] bool fetchCoverArt() const;
 
+    // When cover lookup fails: ask | continue | abort (default ask).
+    void setCoverMissingPolicy(CoverMissingPolicy policy);
+    [[nodiscard]] CoverMissingPolicy coverMissingPolicy() const;
+
     void setExtractor(ExtractorKind kind);
     void setEncoder(EncoderKind kind);
     [[nodiscard]] ExtractorKind extractor() const;
@@ -57,6 +61,7 @@ private:
     std::optional<std::string> album_;
     std::optional<std::string> coverPath_;
     bool fetchCoverArt_{true};
+    CoverMissingPolicy coverMissingPolicy_{CoverMissingPolicy::Ask};
     ExtractorKind extractor_{defaultExtractor()};
     EncoderKind encoder_{EncoderKind::Ffmpeg};
     bool ripInProgress_{false};

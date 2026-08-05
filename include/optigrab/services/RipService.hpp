@@ -10,6 +10,7 @@
 #include "optigrab/ports/MetadataProvider.hpp"
 #include "optigrab/ports/TocReader.hpp"
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -24,6 +25,9 @@ struct RipResult {
 
 class RipService {
 public:
+    // Returns true to continue without cover, false to abort.
+    using CoverMissingPromptFn = std::function<bool()>;
+
     RipService(std::shared_ptr<TocReader> toc,
                std::shared_ptr<AudioExtractor> extractor,
                std::shared_ptr<AudioEncoder> encoder,
@@ -33,10 +37,12 @@ public:
 
     void loadDisc(Session& session, Logger* log = nullptr);
 
-    // Serial: cover fetch → extract/encode all → sidecar + embed if cover exists.
+    // Serial: cover fetch → (covermissing policy) → extract/encode → sidecar + embed.
+    // onCoverMissingAsk: used when policy is Ask (return true = continue without cover).
     std::vector<RipResult> ripTracks(Session& session,
                                      const std::vector<int>& trackNumbers,
-                                     Logger* log = nullptr);
+                                     Logger* log = nullptr,
+                                     CoverMissingPromptFn onCoverMissingAsk = {});
 
 private:
     Tags makeTags(const Session& session, const TrackInfo& track, int trackTotal) const;
