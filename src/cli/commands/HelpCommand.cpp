@@ -36,6 +36,7 @@ public:
                             joined  out/Artist - Album/track.mp3
                             album   out/Album/track.mp3
   set loglevel <level>    trace|debug|info|warn|error|fatal|off
+  set logfile <path>|none Tee logger to file (append); still prints to stderr
 )";
 #ifdef _WIN32
         ctx.out << "  set extractor <name>    ffmpeg\n";

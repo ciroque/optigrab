@@ -22,6 +22,8 @@ public:
         ctx.out << "  Quality   : " << toString(ctx.session.quality()) << "\n";
         ctx.out << "  Layout    : " << toString(ctx.session.folderLayout()) << "\n";
         ctx.out << "  Output    : " << ctx.session.outputDirectory() << "\n";
+        ctx.out << "  Log file  : "
+                << (ctx.logFilePath() ? *ctx.logFilePath() : std::string("(none)")) << "\n";
     }
     [[nodiscard]] std::string name() const override { return "detail drive"; }
 };

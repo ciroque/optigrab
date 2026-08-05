@@ -56,3 +56,10 @@ TEST_CASE("parseLaunchArgs folder-layout", "[args]") {
     REQUIRE(parseLaunchArgs({"--folderlayout", "album"}).folderLayout == FolderLayout::Album);
     REQUIRE_THROWS_AS(parseLaunchArgs({"--folder-layout", "flat"}), ParseError);
 }
+
+TEST_CASE("parseLaunchArgs log-file", "[args]") {
+    const auto a = parseLaunchArgs({"--log-file", "/tmp/optigrab.log", "list", "drive"});
+    REQUIRE(a.logFile == "/tmp/optigrab.log");
+    REQUIRE(a.command == std::vector<std::string>{"list", "drive"});
+    REQUIRE(parseLaunchArgs({"--logfile", "x.log"}).logFile == "x.log");
+}

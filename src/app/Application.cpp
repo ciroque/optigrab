@@ -43,6 +43,9 @@ void Application::applyLaunchArgs(const LaunchArgs& args) {
         ctx_->log.setLevel(*args.logLevel);
         ctx_->log.debug(std::string("log level set to ") + toString(*args.logLevel));
     }
+    if (args.logFile) {
+        ctx_->setLogFile(*args.logFile);
+    }
     if (args.quality) {
         ctx_->session.setQuality(*args.quality);
     }

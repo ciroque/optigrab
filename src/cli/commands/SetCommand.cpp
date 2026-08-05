@@ -193,6 +193,24 @@ public:
     [[nodiscard]] std::string name() const override { return "set loglevel"; }
 };
 
+class SetLogFileCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError("Usage: set logfile <path>|none");
+        }
+        const auto path = joinFrom(tokens, 2);
+        if (path == "none" || path == "off" || path == "clear") {
+            ctx.clearLogFile();
+            ctx.out << "Log file: (none)\n";
+            return;
+        }
+        ctx.setLogFile(path);
+        ctx.out << "Log file: " << path << " (tee; also stderr)\n";
+    }
+    [[nodiscard]] std::string name() const override { return "set logfile"; }
+};
+
 class SetCoverMissingCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>& tokens) override {
@@ -252,6 +270,7 @@ std::unique_ptr<Command> makeSetEncoderCommand() { return std::make_unique<SetEn
 std::unique_ptr<Command> makeSetCoverCommand() { return std::make_unique<SetCoverCommand>(); }
 std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetCoverArtCommand>(); }
 std::unique_ptr<Command> makeSetLogLevelCommand() { return std::make_unique<SetLogLevelCommand>(); }
+std::unique_ptr<Command> makeSetLogFileCommand() { return std::make_unique<SetLogFileCommand>(); }
 std::unique_ptr<Command> makeSetCoverMissingCommand() {
     return std::make_unique<SetCoverMissingCommand>();
 }

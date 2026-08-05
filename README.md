@@ -114,6 +114,7 @@ optigrab --drive 0 \
 | `--log-level <level>` | `trace` `debug` `info` `warn` `error` `fatal` `off` |
 | `--quality` | `V0` `V2` `192` `256` `320` |
 | `--folder-layout` | `nested` `joined` `album` (default `nested`) |
+| `--log-file <path>` | Tee logger lines to file (append); still prints to stderr |
 | `--extractor` | Platform-dependent (`ffmpeg`, …) |
 | `--encoder` | `ffmpeg` |
 | `-h` / `--help` / `--version` | Meta |
@@ -132,6 +133,7 @@ Exit codes: `0` ok, `1` usage/command error, `2` rip completed with track failur
 | `rip track <all\|N\|N-M\|…>` | Extract + encode |
 | `set out\|quality\|artist\|album` | Session options |
 | `set folderlayout nested\|joined\|album` | Album folder layout under `out` |
+| `set logfile <path>\|none` | Tee logger to file (append); console tables stay on stdout |
 | `set extractor …` | Swap extractor (platform-dependent) |
 | `set encoder <ffmpeg>` | Swap encoder |
 | `help` / `cls` / `exit` | Shell utilities |

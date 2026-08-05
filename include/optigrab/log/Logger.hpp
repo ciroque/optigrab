@@ -11,7 +11,10 @@
 namespace optigrab {
 
 // Simple leveled logger. Application/user tables stay on Context::out;
-// operational messages go through Logger (typically stderr).
+// operational messages go through Logger (typically stderr, optional log file).
+//
+// There is no std::multiwriter (unlike Go's io.MultiWriter). We tee by writing
+// the same formatted line to a primary stream and an optional secondary stream.
 class Logger {
 public:
     using Sink = std::function<void(LogLevel level, std::string_view message)>;
@@ -23,7 +26,12 @@ public:
 
     void setStream(std::ostream& stream);
 
-    // Optional custom sink (tests). When set, replaces stream formatting.
+    // Optional second destination (e.g. log file). nullptr disables.
+    // Both primary and secondary receive the same formatted line when no custom sink is set.
+    void setSecondaryStream(std::ostream* stream);
+    [[nodiscard]] std::ostream* secondaryStream() const;
+
+    // Optional custom sink (tests). When set, replaces stream formatting/tee.
     void setSink(Sink sink);
     void clearSink();
 
@@ -44,6 +52,7 @@ private:
     void emit(LogLevel level, std::string_view message);
 
     std::ostream* stream_;
+    std::ostream* secondary_{nullptr};
     LogLevel minLevel_;
     Sink sink_;
     mutable std::mutex mutex_;

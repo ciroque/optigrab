@@ -45,6 +45,7 @@ set(OPTIGRAB_COMMON_SOURCES
   src/adapters/ffmpeg/FfmpegCoverArtApplier.cpp
   src/cli/Tokenizer.cpp
   src/cli/Args.cpp
+  src/cli/Context.cpp
   src/cli/History.cpp
   src/cli/LineReader.cpp
   src/cli/Prompt.cpp

@@ -22,6 +22,12 @@ std::string timestampNow() {
     return oss.str();
 }
 
+std::string formatLine(LogLevel level, std::string_view message) {
+    std::ostringstream oss;
+    oss << timestampNow() << " [" << toString(level) << "] " << message << '\n';
+    return oss.str();
+}
+
 }  // namespace
 
 Logger::Logger(std::ostream& stream, LogLevel minLevel)
@@ -40,6 +46,16 @@ LogLevel Logger::level() const {
 void Logger::setStream(std::ostream& stream) {
     std::lock_guard lock(mutex_);
     stream_ = &stream;
+}
+
+void Logger::setSecondaryStream(std::ostream* stream) {
+    std::lock_guard lock(mutex_);
+    secondary_ = stream;
+}
+
+std::ostream* Logger::secondaryStream() const {
+    std::lock_guard lock(mutex_);
+    return secondary_;
 }
 
 void Logger::setSink(Sink sink) {
@@ -69,11 +85,15 @@ void Logger::emit(LogLevel level, std::string_view message) {
         sink_(level, message);
         return;
     }
-    if (!stream_) {
-        return;
+    const std::string line = formatLine(level, message);
+    if (stream_) {
+        (*stream_) << line;
+        stream_->flush();
     }
-    (*stream_) << timestampNow() << " [" << toString(level) << "] " << message << '\n';
-    stream_->flush();
+    if (secondary_) {
+        (*secondary_) << line;
+        secondary_->flush();
+    }
 }
 
 void Logger::log(LogLevel level, std::string_view message) {

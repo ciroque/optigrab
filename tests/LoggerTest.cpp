@@ -45,3 +45,31 @@ TEST_CASE("Logger callback respects level", "[log]") {
     REQUIRE(count == 2);
     REQUIRE(std::string(toString(LogLevel::Info)) == "INFO");
 }
+
+TEST_CASE("Logger tees to secondary stream", "[log]") {
+    std::ostringstream primary;
+    std::ostringstream secondary;
+    Logger log(primary, LogLevel::Info);
+    log.setSecondaryStream(&secondary);
+
+    log.info("hello-tee");
+
+    REQUIRE(primary.str().find("hello-tee") != std::string::npos);
+    REQUIRE(primary.str().find("[INFO]") != std::string::npos);
+    REQUIRE(secondary.str() == primary.str());
+}
+
+TEST_CASE("Logger secondary stream can be cleared", "[log]") {
+    std::ostringstream primary;
+    std::ostringstream secondary;
+    Logger log(primary, LogLevel::Info);
+    log.setSecondaryStream(&secondary);
+    log.info("one");
+    log.setSecondaryStream(nullptr);
+    log.info("two");
+
+    REQUIRE(primary.str().find("one") != std::string::npos);
+    REQUIRE(primary.str().find("two") != std::string::npos);
+    REQUIRE(secondary.str().find("one") != std::string::npos);
+    REQUIRE(secondary.str().find("two") == std::string::npos);
+}
