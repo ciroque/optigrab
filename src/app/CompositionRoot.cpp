@@ -11,12 +11,14 @@
 #include "optigrab/platform/Platform.hpp"
 
 #ifdef _WIN32
+#include "optigrab/adapters/windows/WindowsDriveEjector.hpp"
 #include "optigrab/adapters/windows/WindowsDriveEnumerator.hpp"
 #include "optigrab/adapters/windows/WindowsTocReader.hpp"
 #else
 #include "optigrab/adapters/cdparanoia/CdparanoiaExtractor.hpp"
 #include "optigrab/adapters/libcdio/LibcdioParanoiaExtractor.hpp"
 #include "optigrab/adapters/libcdio/LibcdioTocReader.hpp"
+#include "optigrab/adapters/linux/LinuxDriveEjector.hpp"
 #include "optigrab/adapters/linux/LinuxDriveEnumerator.hpp"
 #endif
 
@@ -60,9 +62,11 @@ AppServices makeDefaultServices() {
     AppServices s;
 #ifdef _WIN32
     s.drives = std::make_shared<WindowsDriveEnumerator>();
+    s.ejector = std::make_shared<WindowsDriveEjector>();
     s.toc = std::make_shared<WindowsTocReader>();
 #else
     s.drives = std::make_shared<LinuxDriveEnumerator>();
+    s.ejector = std::make_shared<LinuxDriveEjector>();
     s.toc = std::make_shared<LibcdioTocReader>();
 #endif
     s.metadata = std::make_shared<ManualMetadataProvider>();
@@ -81,8 +85,8 @@ std::unique_ptr<Context> makeContext(AppServices& services, std::ostream& out, s
     auto rebuild = [&services](ExtractorKind ex, EncoderKind en) {
         return services.makeRipper(ex, en);
     };
-    auto ctx =
-        std::make_unique<Context>(services.drives, std::move(ripper), std::move(rebuild), out, err);
+    auto ctx = std::make_unique<Context>(services.drives, std::move(ripper), std::move(rebuild), out,
+                                         err, services.ejector);
     ctx->session.setExtractor(extractor);
     return ctx;
 }

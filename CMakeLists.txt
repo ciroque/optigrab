@@ -52,6 +52,7 @@ set(OPTIGRAB_COMMON_SOURCES
   src/cli/CommandHandler.cpp
   src/cli/commands/ListCommand.cpp
   src/cli/commands/SelectCommand.cpp
+  src/cli/commands/EjectCommand.cpp
   src/cli/commands/DetailCommand.cpp
   src/cli/commands/SetCommand.cpp
   src/cli/commands/RipCommand.cpp
@@ -69,6 +70,7 @@ set(OPTIGRAB_COMMON_SOURCES
 if(WIN32)
   list(APPEND OPTIGRAB_COMMON_SOURCES
     src/adapters/windows/WindowsDriveEnumerator.cpp
+    src/adapters/windows/WindowsDriveEjector.cpp
     src/adapters/windows/WindowsTocReader.cpp
   )
 else()
@@ -79,6 +81,7 @@ else()
 
   list(APPEND OPTIGRAB_COMMON_SOURCES
     src/adapters/linux/LinuxDriveEnumerator.cpp
+    src/adapters/linux/LinuxDriveEjector.cpp
     src/adapters/libcdio/LibcdioTocReader.cpp
     src/adapters/libcdio/LibcdioParanoiaExtractor.cpp
     src/adapters/cdparanoia/CdparanoiaExtractor.cpp

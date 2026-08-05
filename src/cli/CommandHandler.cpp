@@ -11,6 +11,7 @@ namespace optigrab {
 std::unique_ptr<Command> makeListDriveCommand();
 std::unique_ptr<Command> makeListTrackCommand();
 std::unique_ptr<Command> makeSelectDriveCommand();
+std::unique_ptr<Command> makeEjectDriveCommand();
 std::unique_ptr<Command> makeDetailDriveCommand();
 std::unique_ptr<Command> makeDetailDiscCommand();
 std::unique_ptr<Command> makeSetOutCommand();
@@ -119,6 +120,7 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeListDriveCommand());
     h.addCommand(makeListTrackCommand());
     h.addCommand(makeSelectDriveCommand());
+    h.addCommand(makeEjectDriveCommand());
     h.addCommand(makeDetailDriveCommand());
     h.addCommand(makeDetailDiscCommand());
     h.addCommand(makeSetOutCommand());

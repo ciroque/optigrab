@@ -6,6 +6,7 @@
 #include "optigrab/ports/AudioExtractor.hpp"
 #include "optigrab/ports/CoverArtApplier.hpp"
 #include "optigrab/ports/CoverArtProvider.hpp"
+#include "optigrab/ports/DriveEjector.hpp"
 #include "optigrab/ports/DriveEnumerator.hpp"
 #include "optigrab/ports/MetadataProvider.hpp"
 #include "optigrab/ports/TocReader.hpp"
@@ -17,6 +18,7 @@ namespace optigrab {
 
 struct AppServices {
     std::shared_ptr<DriveEnumerator> drives;
+    std::shared_ptr<DriveEjector> ejector;
     std::shared_ptr<TocReader> toc;
     std::shared_ptr<MetadataProvider> metadata;
     std::shared_ptr<CoverArtProvider> cover;

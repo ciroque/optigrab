@@ -2,6 +2,7 @@
 
 #include "optigrab/domain/Session.hpp"
 #include "optigrab/log/Logger.hpp"
+#include "optigrab/ports/DriveEjector.hpp"
 #include "optigrab/ports/DriveEnumerator.hpp"
 #include "optigrab/services/RipService.hpp"
 
@@ -14,6 +15,7 @@ namespace optigrab {
 struct Context {
     Session session;
     std::shared_ptr<DriveEnumerator> drives;
+    std::shared_ptr<DriveEjector> ejector;
     std::shared_ptr<RipService> ripper;
     std::function<std::shared_ptr<RipService>(ExtractorKind, EncoderKind)> rebuildRipper;
     std::ostream& out;   // user-facing tables / command results
@@ -26,8 +28,10 @@ struct Context {
             std::shared_ptr<RipService> ripService,
             std::function<std::shared_ptr<RipService>(ExtractorKind, EncoderKind)> rebuild,
             std::ostream& output = std::cout,
-            std::ostream& error = std::cerr)
+            std::ostream& error = std::cerr,
+            std::shared_ptr<DriveEjector> driveEjector = nullptr)
         : drives(std::move(driveEnum)),
+          ejector(std::move(driveEjector)),
           ripper(std::move(ripService)),
           rebuildRipper(std::move(rebuild)),
           out(output),

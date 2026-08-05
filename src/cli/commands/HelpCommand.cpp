@@ -19,6 +19,7 @@ public:
             R"(Commands:
   list drive              List optical drives
   select drive <n|path>   Select a drive (session focus)
+  eject drive [n|path]    Eject tray (selected drive if omitted)
   list track              List tracks on the selected disc
   detail drive            Show selected drive / session settings
   detail disc             Show disc summary

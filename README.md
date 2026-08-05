@@ -110,6 +110,7 @@ Exit codes: `0` ok, `1` usage/command error, `2` rip completed with track failur
 |---------|-------------|
 | `list drive` | List optical drives |
 | `select drive <n\|path>` | Select drive |
+| `eject drive [n\|path]` | Eject tray (selected drive if omitted) |
 | `list track` | List tracks (loads TOC) |
 | `detail drive` / `detail disc` | Session / disc info |
 | `rip track <all\|N\|N-M\|…>` | Extract + encode |
@@ -193,7 +194,7 @@ Planned / nice-to-have (not scheduled):
 8. **Light verify after rip** (length/sanity; not full AccurateRip theater)  
 9. ~~Scriptable one-shot mode~~ — **done**  
 10. ~~Cover art (sidecar + embed)~~ — **done** (richer text tags still open)  
-11. Eject / close tray verbs  
+11. ~~Eject tray~~ — **done** (`eject drive`); close/retract tray still open
 12. Multi-disc disc-number tags  
 13. Pipeline extract ‖ encode  
 14. Windows extract without ffmpeg libcdio demuxer quirks  
