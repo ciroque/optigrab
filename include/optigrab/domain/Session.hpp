@@ -48,6 +48,11 @@ public:
     void setFolderLayout(FolderLayout layout);
     [[nodiscard]] FolderLayout folderLayout() const;
 
+    // Directory for rip logs; files are named "<Artist> - <Album>.log". Empty = disabled.
+    void setLogPathDir(std::string dir);
+    void clearLogPathDir();
+    [[nodiscard]] const std::optional<std::string>& logPathDir() const;
+
     void setExtractor(ExtractorKind kind);
     void setEncoder(EncoderKind kind);
     [[nodiscard]] ExtractorKind extractor() const;
@@ -67,6 +72,7 @@ private:
     bool fetchCoverArt_{true};
     CoverMissingPolicy coverMissingPolicy_{CoverMissingPolicy::Ask};
     FolderLayout folderLayout_{FolderLayout::Nested};
+    std::optional<std::string> logPathDir_;
     ExtractorKind extractor_{defaultExtractor()};
     EncoderKind encoder_{EncoderKind::Ffmpeg};
     bool ripInProgress_{false};

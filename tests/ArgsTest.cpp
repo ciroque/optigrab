@@ -57,9 +57,9 @@ TEST_CASE("parseLaunchArgs folder-layout", "[args]") {
     REQUIRE_THROWS_AS(parseLaunchArgs({"--folder-layout", "flat"}), ParseError);
 }
 
-TEST_CASE("parseLaunchArgs log-file", "[args]") {
-    const auto a = parseLaunchArgs({"--log-file", "/tmp/optigrab.log", "list", "drive"});
-    REQUIRE(a.logFile == "/tmp/optigrab.log");
+TEST_CASE("parseLaunchArgs log-path", "[args]") {
+    const auto a = parseLaunchArgs({"--log-path", "/tmp/logs", "list", "drive"});
+    REQUIRE(a.logPath == "/tmp/logs");
     REQUIRE(a.command == std::vector<std::string>{"list", "drive"});
-    REQUIRE(parseLaunchArgs({"--logfile", "x.log"}).logFile == "x.log");
+    REQUIRE(parseLaunchArgs({"--logpath", "~/logs"}).logPath == "~/logs");
 }

@@ -24,7 +24,7 @@ struct LaunchArgs {
     std::optional<CoverMissingPolicy> coverMissing;
     std::optional<FolderLayout> folderLayout;
     std::optional<LogLevel> logLevel;
-    std::optional<std::string> logFile;  // tee logger to file (append)
+    std::optional<std::string> logPath;  // directory; files are "<Artist> - <Album>.log"
     std::optional<QualityPreset> quality;
     std::optional<ExtractorKind> extractor;
     std::optional<EncoderKind> encoder;

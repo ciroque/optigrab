@@ -89,6 +89,9 @@ public:
         }
         ctx.session.setArtist(joinFrom(tokens, 2));
         ctx.out << "Artist: " << *ctx.session.artist() << "\n";
+        if (ctx.session.logPathDir()) {
+            ctx.rebindLogFile();
+        }
     }
     [[nodiscard]] std::string name() const override { return "set artist"; }
 };
@@ -101,6 +104,9 @@ public:
         }
         ctx.session.setAlbum(joinFrom(tokens, 2));
         ctx.out << "Album: " << *ctx.session.album() << "\n";
+        if (ctx.session.logPathDir()) {
+            ctx.rebindLogFile();
+        }
     }
     [[nodiscard]] std::string name() const override { return "set album"; }
 };
@@ -193,22 +199,27 @@ public:
     [[nodiscard]] std::string name() const override { return "set loglevel"; }
 };
 
-class SetLogFileCommand : public Command {
+class SetLogPathCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>& tokens) override {
         if (tokens.size() < 3) {
-            throw ParseError("Usage: set logfile <path>|none");
+            throw ParseError(
+                "Usage: set logpath <dir>|none\n"
+                "  Writes <Artist> - <Album>.log under <dir> (tee to stderr)");
         }
         const auto path = joinFrom(tokens, 2);
         if (path == "none" || path == "off" || path == "clear") {
-            ctx.clearLogFile();
-            ctx.out << "Log file: (none)\n";
+            ctx.clearLogPath();
+            ctx.out << "Log path: (none)\n";
             return;
         }
-        ctx.setLogFile(path);
-        ctx.out << "Log file: " << path << " (tee; also stderr)\n";
+        ctx.setLogPath(path);
+        ctx.out << "Log path: " << path << "  (files: \"<Artist> - <Album>.log\"; also stderr)\n";
+        if (ctx.log.secondaryFilePath()) {
+            ctx.out << "  current: " << ctx.log.secondaryFilePath()->string() << "\n";
+        }
     }
-    [[nodiscard]] std::string name() const override { return "set logfile"; }
+    [[nodiscard]] std::string name() const override { return "set logpath"; }
 };
 
 class SetCoverMissingCommand : public Command {
@@ -270,7 +281,7 @@ std::unique_ptr<Command> makeSetEncoderCommand() { return std::make_unique<SetEn
 std::unique_ptr<Command> makeSetCoverCommand() { return std::make_unique<SetCoverCommand>(); }
 std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetCoverArtCommand>(); }
 std::unique_ptr<Command> makeSetLogLevelCommand() { return std::make_unique<SetLogLevelCommand>(); }
-std::unique_ptr<Command> makeSetLogFileCommand() { return std::make_unique<SetLogFileCommand>(); }
+std::unique_ptr<Command> makeSetLogPathCommand() { return std::make_unique<SetLogPathCommand>(); }
 std::unique_ptr<Command> makeSetCoverMissingCommand() {
     return std::make_unique<SetCoverMissingCommand>();
 }

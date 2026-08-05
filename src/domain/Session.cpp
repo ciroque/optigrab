@@ -70,6 +70,12 @@ void Session::setFolderLayout(FolderLayout layout) { folderLayout_ = layout; }
 
 FolderLayout Session::folderLayout() const { return folderLayout_; }
 
+void Session::setLogPathDir(std::string dir) { logPathDir_ = std::move(dir); }
+
+void Session::clearLogPathDir() { logPathDir_.reset(); }
+
+const std::optional<std::string>& Session::logPathDir() const { return logPathDir_; }
+
 void Session::setExtractor(ExtractorKind kind) { extractor_ = kind; }
 
 void Session::setEncoder(EncoderKind kind) { encoder_ = kind; }

@@ -17,4 +17,13 @@ namespace optigrab {
                                                    const Tags& tags,
                                                    FolderLayout layout = FolderLayout::Nested);
 
+// Log file under logPathDir: "<Artist> - <Album>.log" (sanitized).
+[[nodiscard]] std::filesystem::path buildLogFilePath(const std::filesystem::path& logPathDir,
+                                                     const std::string& artist,
+                                                     const std::string& album);
+
+// Prefer albumArtist / session-style fields from tags.
+[[nodiscard]] std::filesystem::path buildLogFilePath(const std::filesystem::path& logPathDir,
+                                                     const Tags& tags);
+
 }  // namespace optigrab

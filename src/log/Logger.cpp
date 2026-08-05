@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 
 namespace optigrab {
 namespace {
@@ -48,14 +49,63 @@ void Logger::setStream(std::ostream& stream) {
     stream_ = &stream;
 }
 
+void Logger::clearOwnedSecondaryUnlocked() {
+    secondary_ = nullptr;
+    ownedSecondary_.reset();
+    secondaryFilePath_.reset();
+}
+
 void Logger::setSecondaryStream(std::ostream* stream) {
     std::lock_guard lock(mutex_);
+    clearOwnedSecondaryUnlocked();
     secondary_ = stream;
 }
 
 std::ostream* Logger::secondaryStream() const {
     std::lock_guard lock(mutex_);
     return secondary_;
+}
+
+bool Logger::tryOpenSecondaryFile(const std::filesystem::path& path, std::string& errorOut) {
+    std::lock_guard lock(mutex_);
+    clearOwnedSecondaryUnlocked();
+
+    std::error_code ec;
+    const auto parent = path.parent_path();
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent, ec);
+        if (ec) {
+            errorOut = "Failed to create log directory " + parent.string() + ": " + ec.message();
+            return false;
+        }
+    }
+
+    auto file = std::make_unique<std::ofstream>(path, std::ios::out | std::ios::app);
+    if (!file || !file->is_open()) {
+        errorOut = "Failed to open log file: " + path.string();
+        return false;
+    }
+    ownedSecondary_ = std::move(file);
+    secondary_ = ownedSecondary_.get();
+    secondaryFilePath_ = path;
+    return true;
+}
+
+void Logger::setSecondaryFile(const std::filesystem::path& path) {
+    std::string err;
+    if (!tryOpenSecondaryFile(path, err)) {
+        throw std::runtime_error(err);
+    }
+}
+
+void Logger::clearSecondaryFile() {
+    std::lock_guard lock(mutex_);
+    clearOwnedSecondaryUnlocked();
+}
+
+const std::optional<std::filesystem::path>& Logger::secondaryFilePath() const {
+    std::lock_guard lock(mutex_);
+    return secondaryFilePath_;
 }
 
 void Logger::setSink(Sink sink) {

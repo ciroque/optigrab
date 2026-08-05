@@ -6,7 +6,6 @@
 #include "optigrab/ports/DriveEnumerator.hpp"
 #include "optigrab/services/RipService.hpp"
 
-#include <fstream>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -41,14 +40,14 @@ struct Context {
           err(error),
           log(error, LogLevel::Info) {}
 
-    // Tee Logger lines to path (append) as well as stderr. Throws OptigrabError on open failure.
-    void setLogFile(const std::string& path);
-    void clearLogFile();
-    [[nodiscard]] const std::optional<std::string>& logFilePath() const { return logFilePath_; }
-
-private:
-    std::unique_ptr<std::ofstream> logFileStream_;
-    std::optional<std::string> logFilePath_;
+    // Directory for logs; files are "<Artist> - <Album>.log". Throws OptigrabError on open failure.
+    void setLogPath(const std::string& dir);
+    void clearLogPath();
+    // Re-open log file from session (and optional disc) artist/album. No-op if logpath unset.
+    void rebindLogFile();
+    [[nodiscard]] const std::optional<std::string>& logPathDir() const {
+        return session.logPathDir();
+    }
 };
 
 }  // namespace optigrab

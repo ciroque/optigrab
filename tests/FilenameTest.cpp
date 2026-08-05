@@ -60,3 +60,20 @@ TEST_CASE("buildTrackPath prefers albumArtist for folder name", "[filename]") {
     const auto p = buildTrackPath("/music", tags, FolderLayout::Nested);
     REQUIRE(p.parent_path().parent_path().filename() == "Album Artist");
 }
+
+TEST_CASE("buildLogFilePath uses Artist - Album.log", "[filename]") {
+    using optigrab::buildLogFilePath;
+    const auto p = buildLogFilePath("/var/log/optigrab", "Iron Maiden", "Piece of Mind");
+    REQUIRE(p.filename() == "Iron Maiden - Piece of Mind.log");
+    REQUIRE(p.parent_path() == "/var/log/optigrab");
+
+    Tags tags = sampleTags();
+    tags.albumArtist = "The Band";
+    tags.album = "Live";
+    REQUIRE(buildLogFilePath("/logs", tags).filename() == "The Band - Live.log");
+}
+
+TEST_CASE("buildLogFilePath falls back for empty names", "[filename]") {
+    using optigrab::buildLogFilePath;
+    REQUIRE(buildLogFilePath("/l", "", "").filename() == "Unknown Artist - Unknown Album.log");
+}

@@ -2,9 +2,13 @@
 
 #include "optigrab/log/LogLevel.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -27,9 +31,17 @@ public:
     void setStream(std::ostream& stream);
 
     // Optional second destination (e.g. log file). nullptr disables.
-    // Both primary and secondary receive the same formatted line when no custom sink is set.
+    // Clears any owned secondary file. Prefer setSecondaryFile for paths.
     void setSecondaryStream(std::ostream* stream);
     [[nodiscard]] std::ostream* secondaryStream() const;
+
+    // Open path for append, own the ofstream, and tee to it. Creates parent dirs.
+    // Throws std::runtime_error (or OptigrabError from callers) — returns false on open fail
+    // if you use tryOpenSecondaryFile.
+    void setSecondaryFile(const std::filesystem::path& path);
+    [[nodiscard]] bool tryOpenSecondaryFile(const std::filesystem::path& path, std::string& errorOut);
+    void clearSecondaryFile();
+    [[nodiscard]] const std::optional<std::filesystem::path>& secondaryFilePath() const;
 
     // Optional custom sink (tests). When set, replaces stream formatting/tee.
     void setSink(Sink sink);
@@ -50,9 +62,12 @@ public:
 
 private:
     void emit(LogLevel level, std::string_view message);
+    void clearOwnedSecondaryUnlocked();
 
     std::ostream* stream_;
     std::ostream* secondary_{nullptr};
+    std::unique_ptr<std::ofstream> ownedSecondary_;
+    std::optional<std::filesystem::path> secondaryFilePath_;
     LogLevel minLevel_;
     Sink sink_;
     mutable std::mutex mutex_;

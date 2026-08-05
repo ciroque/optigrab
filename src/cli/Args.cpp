@@ -70,7 +70,7 @@ std::string usageText() {
         << "                           joined  out/Artist - Album/track.mp3\n"
         << "                           album   out/Album/track.mp3\n"
         << "  --log-level <level>    trace|debug|info|warn|error|fatal|off (default: info)\n"
-        << "  --log-file <path>      Tee logger output to file (append); still prints to stderr\n"
+        << "  --log-path <dir>       Log directory; writes \"<Artist> - <Album>.log\" (tee stderr)\n"
         << "  --quality <preset>     V0 | V2 | 192 | 256 | 320\n";
 #ifdef _WIN32
     oss << "  --extractor <name>     ffmpeg\n";
@@ -164,8 +164,8 @@ LaunchArgs parseLaunchArgs(const std::vector<std::string>& argv) {
             ++i;
             continue;
         }
-        if (a == "--log-file" || a == "--logfile") {
-            out.logFile = requireValue(argv, i, a);
+        if (a == "--log-path" || a == "--logpath") {
+            out.logPath = requireValue(argv, i, a);
             ++i;
             continue;
         }

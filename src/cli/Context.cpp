@@ -1,29 +1,63 @@
 #include "optigrab/cli/Context.hpp"
 
 #include "optigrab/domain/Errors.hpp"
+#include "optigrab/services/Filename.hpp"
 
 namespace optigrab {
+namespace {
 
-void Context::setLogFile(const std::string& path) {
-    auto file = std::make_unique<std::ofstream>(path, std::ios::out | std::ios::app);
-    if (!file || !file->is_open()) {
-        throw OptigrabError("Failed to open log file: " + path);
+void resolveArtistAlbum(const Session& session, std::string& artist, std::string& album) {
+    if (session.artist()) {
+        artist = *session.artist();
+    } else if (session.hasDisc() && session.disc().albumArtist) {
+        artist = *session.disc().albumArtist;
+    } else {
+        artist = "Unknown Artist";
     }
-    logFileStream_ = std::move(file);
-    logFilePath_ = path;
-    log.setSecondaryStream(logFileStream_.get());
-    log.info("logging also to " + path);
+
+    if (session.album()) {
+        album = *session.album();
+    } else if (session.hasDisc() && session.disc().album) {
+        album = *session.disc().album;
+    } else {
+        album = "Unknown Album";
+    }
 }
 
-void Context::clearLogFile() {
-    log.setSecondaryStream(nullptr);
-    logFileStream_.reset();
-    if (logFilePath_) {
-        const auto prev = *logFilePath_;
-        logFilePath_.reset();
-        log.info("stopped logging to " + prev);
-    } else {
-        logFilePath_.reset();
+}  // namespace
+
+void Context::rebindLogFile() {
+    if (!session.logPathDir()) {
+        log.clearSecondaryFile();
+        return;
+    }
+
+    std::string artist;
+    std::string album;
+    resolveArtistAlbum(session, artist, album);
+
+    const auto path = buildLogFilePath(*session.logPathDir(), artist, album);
+    std::string err;
+    if (!log.tryOpenSecondaryFile(path, err)) {
+        throw OptigrabError(err);
+    }
+    log.info("logging also to " + path.string());
+}
+
+void Context::setLogPath(const std::string& dir) {
+    if (dir.empty()) {
+        throw OptigrabError("Log path directory must not be empty");
+    }
+    session.setLogPathDir(dir);
+    rebindLogFile();
+}
+
+void Context::clearLogPath() {
+    const auto prev = session.logPathDir();
+    session.clearLogPathDir();
+    log.clearSecondaryFile();
+    if (prev) {
+        log.info("stopped logging to directory " + *prev);
     }
 }
 

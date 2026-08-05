@@ -54,4 +54,16 @@ std::filesystem::path buildTrackPath(const std::filesystem::path& outputDir, con
     return outputDir / artist / album / file;
 }
 
+std::filesystem::path buildLogFilePath(const std::filesystem::path& logPathDir,
+                                       const std::string& artist, const std::string& album) {
+    const std::string a = sanitizeFilename(artist.empty() ? "Unknown Artist" : artist);
+    const std::string b = sanitizeFilename(album.empty() ? "Unknown Album" : album);
+    return logPathDir / (a + " - " + b + ".log");
+}
+
+std::filesystem::path buildLogFilePath(const std::filesystem::path& logPathDir, const Tags& tags) {
+    const std::string artist = tags.albumArtist.empty() ? tags.artist : tags.albumArtist;
+    return buildLogFilePath(logPathDir, artist, tags.album);
+}
+
 }  // namespace optigrab

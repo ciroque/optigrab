@@ -122,6 +122,25 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
     std::vector<RipResult> results;
     results.reserve(trackNumbers.size());
 
+    // Bind log file to "<Artist> - <Album>.log" under session logpath once disc metadata is known.
+    if (session.logPathDir() && log) {
+        Tags nameTags;
+        if (!disc.tracks.empty()) {
+            nameTags = makeTags(session, disc.tracks.front(), totalOnDisc);
+        } else {
+            nameTags.artist = session.artist().value_or("Unknown Artist");
+            nameTags.albumArtist = nameTags.artist;
+            nameTags.album = session.album().value_or(
+                (disc.album ? *disc.album : std::string("Unknown Album")));
+        }
+        const auto logFile = buildLogFilePath(*session.logPathDir(), nameTags);
+        std::string openErr;
+        if (!log->tryOpenSecondaryFile(logFile, openErr)) {
+            throw SessionError(openErr);
+        }
+        log->info("logging also to " + logFile.string());
+    }
+
     std::optional<CoverArt> cover;
     bool coverLookupAttempted = false;
     if (session.fetchCoverArt() && coverProvider_) {

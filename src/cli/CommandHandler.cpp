@@ -23,7 +23,7 @@ std::unique_ptr<Command> makeSetEncoderCommand();
 std::unique_ptr<Command> makeSetCoverCommand();
 std::unique_ptr<Command> makeSetCoverArtCommand();
 std::unique_ptr<Command> makeSetLogLevelCommand();
-std::unique_ptr<Command> makeSetLogFileCommand();
+std::unique_ptr<Command> makeSetLogPathCommand();
 std::unique_ptr<Command> makeSetCoverMissingCommand();
 std::unique_ptr<Command> makeSetFolderLayoutCommand();
 std::unique_ptr<Command> makeRipTrackCommand();
@@ -134,7 +134,7 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeSetCoverCommand());
     h.addCommand(makeSetCoverArtCommand());
     h.addCommand(makeSetLogLevelCommand());
-    h.addCommand(makeSetLogFileCommand());
+    h.addCommand(makeSetLogPathCommand());
     h.addCommand(makeSetCoverMissingCommand());
     h.addCommand(makeSetFolderLayoutCommand());
     h.addCommand(makeRipTrackCommand());
