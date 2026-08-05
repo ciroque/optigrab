@@ -1,0 +1,8 @@
+# Example only — do not use as a real key.
+# Replace this file by exporting your release public key:
+#
+#   gpg --export --armor YOUR_KEY_ID > packaging/KEYS.asc
+#
+# Then commit packaging/KEYS.asc (not this .example file as KEYS.asc).
+#
+# See docs/RELEASING.md

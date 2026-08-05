@@ -156,6 +156,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout (public key + docs)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag != '' && inputs.tag || github.ref }}
+
       - name: Resolve tag
         id: ver
         shell: bash
@@ -172,18 +177,83 @@ jobs:
         with:
           path: artifacts
 
-      - name: Collect release files
+      - name: Collect archives, checksums, and GPG signature
+        id: sign
         shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
         run: |
+          set -euo pipefail
           mkdir -p release-files
-          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} release-files/ \;
-          echo "Release files:"
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp -t release-files {} +
+          echo "Release archives:"
           ls -la release-files
-          count=$(find release-files -type f | wc -l)
+          count=$(find release-files -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l)
           if [[ "$count" -lt 1 ]]; then
             echo "No release archives found" >&2
             exit 1
           fi
+
+          # Stable, relative checksums (GNU coreutils on ubuntu-latest).
+          (
+            cd release-files
+            shopt -s nullglob
+            files=( *.tar.gz *.zip )
+            if [[ ${#files[@]} -eq 0 ]]; then
+              echo "No archives to checksum" >&2
+              exit 1
+            fi
+            sha256sum -- "${files[@]}" | sort -k2 > SHA256SUMS
+            echo "----- SHA256SUMS -----"
+            cat SHA256SUMS
+          )
+
+          SIGNED=false
+          if [[ -n "${GPG_PRIVATE_KEY:-}" ]]; then
+            # Import signing key (armored secret key).
+            GNUPGHOME="$(mktemp -d)"
+            export GNUPGHOME
+            chmod 700 "$GNUPGHOME"
+            echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+            # Prefer explicit key id; otherwise first secret key in the keyring.
+            if [[ -z "${GPG_KEY_ID:-}" ]]; then
+              GPG_KEY_ID="$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/ { print $5; exit }')"
+            fi
+            if [[ -z "${GPG_KEY_ID:-}" ]]; then
+              echo "GPG_PRIVATE_KEY imported but no secret key id found" >&2
+              exit 1
+            fi
+            echo "Signing SHA256SUMS with key ${GPG_KEY_ID}"
+
+            # Non-interactive passphrase (empty passphrase is fine).
+            gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE:-}" \
+              --local-user "$GPG_KEY_ID" \
+              --detach-sign \
+              --armor \
+              --output release-files/SHA256SUMS.asc \
+              release-files/SHA256SUMS
+
+            gpg --batch --verify release-files/SHA256SUMS.asc release-files/SHA256SUMS
+            SIGNED=true
+            # Leave no key material on the runner disk beyond the job.
+            rm -rf "$GNUPGHOME"
+          else
+            echo "::warning::GPG_PRIVATE_KEY secret is not set; shipping SHA256SUMS without .asc signature."
+            echo "See docs/RELEASING.md to enable release signing."
+          fi
+
+          # Ship the committed public key when present (helps first-time verifiers).
+          if [[ -f packaging/KEYS.asc ]]; then
+            cp packaging/KEYS.asc release-files/KEYS.asc
+          fi
+
+          echo "signed=${SIGNED}" >> "$GITHUB_OUTPUT"
+          ls -la release-files
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -194,5 +264,17 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           draft: false
+          body: |
+            ### Verify downloads
+
+            ```bash
+            # Checksums (always published)
+            sha256sum -c SHA256SUMS
+
+            # Detached GPG signature (when signing is configured)
+            gpg --verify SHA256SUMS.asc SHA256SUMS
+            ```
+
+            See [docs/VERIFYING.md](https://github.com/${{ github.repository }}/blob/${{ steps.ver.outputs.tag }}/docs/VERIFYING.md) for full instructions.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

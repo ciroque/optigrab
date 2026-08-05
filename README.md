@@ -150,10 +150,13 @@ Core code depends on **ports** only. Adapters are thin wrappers.
 ## CI & releases
 
 - **CI** (`.github/workflows/ci.yml`): build + unit tests + smoke on **Linux, Windows, and macOS** for every PR/push to `main`.
-- **Release** (`.github/workflows/release.yml`): push a tag `v*` → build/test all three → GitHub Release with archives:
+- **Release** (`.github/workflows/release.yml`): push a tag `v*` → build/test all three → GitHub Release with:
   - `optigrab-linux-x64.tar.gz`
   - `optigrab-windows-x64.zip`
   - `optigrab-macos-arm64.tar.gz` (`macos-latest` = Apple Silicon)
+  - **`SHA256SUMS`** — checksums for all archives  
+  - **`SHA256SUMS.asc`** — GPG detached signature (when repo secrets are configured)  
+  - **`KEYS.asc`** — public key (when `packaging/KEYS.asc` is committed)
 
 ```bash
 git tag v0.2.0
@@ -161,6 +164,17 @@ git push origin v0.2.0
 ```
 
 You can also run **Release** from the Actions UI (`workflow_dispatch`) with a `v*` tag.
+
+### Verify a download
+
+```bash
+sha256sum -c SHA256SUMS
+gpg --import KEYS.asc          # once
+gpg --verify SHA256SUMS.asc SHA256SUMS
+```
+
+Full steps: [docs/VERIFYING.md](docs/VERIFYING.md).  
+Maintainer signing setup: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Metadata naming
 
