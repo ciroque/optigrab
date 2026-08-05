@@ -74,18 +74,28 @@ if(WIN32)
     src/adapters/windows/WindowsTocReader.cpp
   )
 else()
+  # Linux + macOS: libcdio for TOC / paranoia extract; platform drive adapters differ.
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(LIBCDIO REQUIRED libcdio)
   pkg_check_modules(LIBCDIO_CDDA REQUIRED libcdio_cdda)
   pkg_check_modules(LIBCDIO_PARANOIA REQUIRED libcdio_paranoia)
 
   list(APPEND OPTIGRAB_COMMON_SOURCES
-    src/adapters/linux/LinuxDriveEnumerator.cpp
-    src/adapters/linux/LinuxDriveEjector.cpp
     src/adapters/libcdio/LibcdioTocReader.cpp
     src/adapters/libcdio/LibcdioParanoiaExtractor.cpp
     src/adapters/cdparanoia/CdparanoiaExtractor.cpp
   )
+  if(APPLE)
+    list(APPEND OPTIGRAB_COMMON_SOURCES
+      src/adapters/macos/MacDriveEnumerator.cpp
+      src/adapters/macos/MacDriveEjector.cpp
+    )
+  else()
+    list(APPEND OPTIGRAB_COMMON_SOURCES
+      src/adapters/linux/LinuxDriveEnumerator.cpp
+      src/adapters/linux/LinuxDriveEjector.cpp
+    )
+  endif()
 endif()
 
 add_library(optigrab_lib ${OPTIGRAB_COMMON_SOURCES})

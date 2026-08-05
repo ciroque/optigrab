@@ -18,8 +18,13 @@
 #include "optigrab/adapters/cdparanoia/CdparanoiaExtractor.hpp"
 #include "optigrab/adapters/libcdio/LibcdioParanoiaExtractor.hpp"
 #include "optigrab/adapters/libcdio/LibcdioTocReader.hpp"
+#if defined(__APPLE__)
+#include "optigrab/adapters/macos/MacDriveEjector.hpp"
+#include "optigrab/adapters/macos/MacDriveEnumerator.hpp"
+#else
 #include "optigrab/adapters/linux/LinuxDriveEjector.hpp"
 #include "optigrab/adapters/linux/LinuxDriveEnumerator.hpp"
+#endif
 #endif
 
 namespace optigrab {
@@ -64,6 +69,10 @@ AppServices makeDefaultServices() {
     s.drives = std::make_shared<WindowsDriveEnumerator>();
     s.ejector = std::make_shared<WindowsDriveEjector>();
     s.toc = std::make_shared<WindowsTocReader>();
+#elif defined(__APPLE__)
+    s.drives = std::make_shared<MacDriveEnumerator>();
+    s.ejector = std::make_shared<MacDriveEjector>();
+    s.toc = std::make_shared<LibcdioTocReader>();
 #else
     s.drives = std::make_shared<LinuxDriveEnumerator>();
     s.ejector = std::make_shared<LinuxDriveEjector>();

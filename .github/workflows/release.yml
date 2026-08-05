@@ -4,13 +4,20 @@ on:
   push:
     tags:
       - 'v*'
+  # Allow manual re-cut from Actions UI (uses the tag that was checked out / workflow_dispatch input).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.2.0). Leave empty to use the current ref name.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: build-${{ matrix.os }}
+    name: build-${{ matrix.artifact }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -18,21 +25,38 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: optigrab-linux-x64
+            archive: tar.gz
           - os: windows-latest
             artifact: optigrab-windows-x64
+            archive: zip
+          - os: macos-latest
+            artifact: optigrab-macos-arm64
+            archive: tar.gz
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag != '' && inputs.tag || github.ref }}
 
       - name: Version from tag
         id: ver
         shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          # workflow_dispatch without tag on a branch → refuse (need a version tag)
+          if [[ "$TAG" != v* ]]; then
+            echo "Release builds require a v* tag (got: $TAG)" >&2
+            exit 1
+          fi
           VERSION="${TAG#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${TAG} (version ${VERSION})"
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -41,6 +65,14 @@ jobs:
           sudo apt-get install -y \
             build-essential cmake pkg-config \
             libcdio-dev libcdio-paranoia-dev
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg cdparanoia
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         shell: bash
@@ -54,41 +86,61 @@ jobs:
         run: cmake --build build --config Release --parallel
 
       - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 120
 
-      - name: Package (Linux)
-        if: runner.os == 'Linux'
+      - name: Package
         shell: bash
         run: |
-          STAGE="dist/${{ matrix.artifact }}"
+          set -euo pipefail
+          ARTIFACT="${{ matrix.artifact }}"
+          STAGE="dist/${ARTIFACT}"
           mkdir -p "$STAGE"
-          cp build/optigrab "$STAGE/"
-          cp README.md LICENSE "$STAGE/"
-          cat > "$STAGE/RUNTIME.txt" <<'EOF'
-          Runtime dependencies (install via your package manager):
-            - ffmpeg (with libmp3lame)
-            - cdparanoia (default extractor)
-            - libcdio / libcdio-paranoia (linked; needed at runtime if dynamic)
-          EOF
-          tar -C dist -czf "${{ matrix.artifact }}.tar.gz" "${{ matrix.artifact }}"
 
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          STAGE="dist/${{ matrix.artifact }}"
-          mkdir -p "$STAGE"
-          BIN="build/Release/optigrab.exe"
-          if [[ ! -f "$BIN" ]]; then BIN="build/optigrab.exe"; fi
-          cp "$BIN" "$STAGE/"
-          cp README.md LICENSE "$STAGE/"
-          cat > "$STAGE/RUNTIME.txt" <<'EOF'
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            BIN="build/Release/optigrab.exe"
+            if [[ ! -f "$BIN" ]]; then BIN="build/optigrab.exe"; fi
+            cp "$BIN" "$STAGE/"
+            cat > "$STAGE/RUNTIME.txt" <<'EOF'
           Runtime dependencies:
             - ffmpeg on PATH (with libmp3lame), used for extract + encode
           Device paths look like D: (drive letters).
           Close other apps that lock the optical drive before ripping.
           EOF
-          (cd dist && powershell -Command "Compress-Archive -Path '${{ matrix.artifact }}' -DestinationPath '${{ matrix.artifact }}.zip'")
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            cp build/optigrab "$STAGE/"
+            cat > "$STAGE/RUNTIME.txt" <<'EOF'
+          Runtime dependencies (Homebrew recommended):
+            - ffmpeg (with libmp3lame)
+            - cdparanoia (default extractor)
+            - libcdio / libcdio_paranoia (linked; install via brew if the binary is dynamic)
+
+            brew install ffmpeg cdparanoia libcdio
+
+          Optical devices appear as /dev/rdiskN (USB SuperDrive / external CD).
+          Use: list drive
+          EOF
+          else
+            cp build/optigrab "$STAGE/"
+            cat > "$STAGE/RUNTIME.txt" <<'EOF'
+          Runtime dependencies (install via your package manager):
+            - ffmpeg (with libmp3lame)
+            - cdparanoia (default extractor)
+            - libcdio / libcdio-paranoia (linked; needed at runtime if dynamic)
+
+          Optical devices: /dev/sr0 (add user to optical/cdrom group).
+          EOF
+          fi
+
+          cp README.md LICENSE "$STAGE/"
+
+          mkdir -p dist
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            (cd dist && powershell -Command "Compress-Archive -Path '${ARTIFACT}' -DestinationPath '${ARTIFACT}.zip' -Force")
+            ls -la "dist/${ARTIFACT}.zip"
+          else
+            tar -C dist -czf "dist/${ARTIFACT}.tar.gz" "${ARTIFACT}"
+            ls -la "dist/${ARTIFACT}.tar.gz"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -96,12 +148,24 @@ jobs:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}.*
           if-no-files-found: error
+          retention-days: 14
 
   publish:
     name: publish-github-release
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve tag
+        id: ver
+        shell: bash
+        run: |
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -112,13 +176,22 @@ jobs:
         run: |
           mkdir -p release-files
           find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} release-files/ \;
+          echo "Release files:"
           ls -la release-files
+          count=$(find release-files -type f | wc -l)
+          if [[ "$count" -lt 1 ]]; then
+            echo "No release archives found" >&2
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
           files: release-files/*
           generate_release_notes: true
           fail_on_unmatched_files: true
+          draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

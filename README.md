@@ -13,10 +13,10 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 - **Leveled logging**: `trace` `debug` `info` `warn` `error` `fatal` (`--log-level`, `set loglevel`)
 - **Actionable device errors** (permissions, busy drive, empty tray, …)
 - Swappable backends via clean ports:
-  - **Linux extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
+  - **Linux / macOS extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
   - **Windows extract:** `ffmpeg` (default)
   - **Encode:** `ffmpeg` + libmp3lame (tags included)
-  - **TOC:** libcdio (Linux), Windows SPTI (Windows)
+  - **TOC:** libcdio (Linux/macOS), Windows SPTI (Windows)
 - Session focus (selected drive); **auto-selects when only one drive is present**
 - Manual artist/album overrides
 - Filenames: `<out>/<Artist> - <Album>/<NN> Title.mp3`
@@ -39,6 +39,16 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 - `ffmpeg` on `PATH` (extract + encode)
 - Optical drive visible as a CD-ROM drive letter (e.g. `D:`)
 
+### macOS
+
+- CMake ≥ 3.20, Apple Clang (C++20)
+- Homebrew packages: `libcdio`, `libcdio-paranoia` (if separate), `ffmpeg`, `cdparanoia`, `pkg-config`
+- External USB optical drives appear as `/dev/rdiskN` (`list drive`)
+
+```bash
+brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg cdparanoia
+```
+
 ## Build
 
 ```bash
@@ -47,7 +57,7 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Binary: `build/optigrab` (Linux) or `build/Release/optigrab.exe` (MSVC multi-config).
+Binary: `build/optigrab` (Linux/macOS) or `build/Release/optigrab.exe` (MSVC multi-config).
 
 Optional version stamp:
 
@@ -129,7 +139,7 @@ CLI (VERB NOUN) → Session + Commands
        ↓
  DriveEnumerator | TocReader | AudioExtractor | AudioEncoder | MetadataProvider
        ↓                ↓              ↓              ↓
-   Linux / Windows   libcdio / SPTI   cdparanoia    ffmpeg
+ Linux / macOS / Win  libcdio / SPTI  cdparanoia    ffmpeg
                                       libcdio / ffmpeg
 ```
 
@@ -137,13 +147,18 @@ Core code depends on **ports** only. Adapters are thin wrappers.
 
 ## CI & releases
 
-- **CI** (`.github/workflows/ci.yml`): build + test on Ubuntu and Windows for every PR/push to main.
-- **Release** (`.github/workflows/release.yml`): push a tag `v0.2.0` → builds both platforms → GitHub Release with archives.
+- **CI** (`.github/workflows/ci.yml`): build + unit tests + smoke on **Linux, Windows, and macOS** for every PR/push to `main`.
+- **Release** (`.github/workflows/release.yml`): push a tag `v*` → build/test all three → GitHub Release with archives:
+  - `optigrab-linux-x64.tar.gz`
+  - `optigrab-windows-x64.zip`
+  - `optigrab-macos-arm64.tar.gz` (`macos-latest` = Apple Silicon)
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
+
+You can also run **Release** from the Actions UI (`workflow_dispatch`) with a `v*` tag.
 
 ## Metadata naming
 
