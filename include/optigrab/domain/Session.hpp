@@ -44,6 +44,10 @@ public:
     void setCoverMissingPolicy(CoverMissingPolicy policy);
     [[nodiscard]] CoverMissingPolicy coverMissingPolicy() const;
 
+    // Album folder layout under output dir: nested | joined | album (default nested).
+    void setFolderLayout(FolderLayout layout);
+    [[nodiscard]] FolderLayout folderLayout() const;
+
     void setExtractor(ExtractorKind kind);
     void setEncoder(EncoderKind kind);
     [[nodiscard]] ExtractorKind extractor() const;
@@ -62,6 +66,7 @@ private:
     std::optional<std::string> coverPath_;
     bool fetchCoverArt_{true};
     CoverMissingPolicy coverMissingPolicy_{CoverMissingPolicy::Ask};
+    FolderLayout folderLayout_{FolderLayout::Nested};
     ExtractorKind extractor_{defaultExtractor()};
     EncoderKind encoder_{EncoderKind::Ffmpeg};
     bool ripInProgress_{false};

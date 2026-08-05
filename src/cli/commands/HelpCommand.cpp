@@ -31,6 +31,10 @@ public:
   set cover <path>|none   Local cover image (preferred over network)
   set coverart on|off     Enable/disable cover download+embed
   set covermissing <p>    ask|continue|abort if no cover (default: ask)
+  set folderlayout <l>    nested|joined|album (default: nested)
+                            nested  out/Artist/Album/track.mp3
+                            joined  out/Artist - Album/track.mp3
+                            album   out/Album/track.mp3
   set loglevel <level>    trace|debug|info|warn|error|fatal|off
 )";
 #ifdef _WIN32

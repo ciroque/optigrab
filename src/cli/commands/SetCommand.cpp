@@ -214,6 +214,31 @@ public:
     [[nodiscard]] std::string name() const override { return "set covermissing"; }
 };
 
+class SetFolderLayoutCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError(
+                "Usage: set folderlayout <nested|joined|album>\n"
+                "  nested  out/Artist/Album/track.mp3\n"
+                "  joined  out/Artist - Album/track.mp3\n"
+                "  album   out/Album/track.mp3");
+        }
+        const auto& v = tokens[2];
+        if (v == "nested") {
+            ctx.session.setFolderLayout(FolderLayout::Nested);
+        } else if (v == "joined") {
+            ctx.session.setFolderLayout(FolderLayout::Joined);
+        } else if (v == "album") {
+            ctx.session.setFolderLayout(FolderLayout::Album);
+        } else {
+            throw ParseError("Unknown folderlayout value: " + v + " (nested|joined|album)");
+        }
+        ctx.out << "Folder layout: " << toString(ctx.session.folderLayout()) << "\n";
+    }
+    [[nodiscard]] std::string name() const override { return "set folderlayout"; }
+};
+
 }  // namespace
 
 std::unique_ptr<Command> makeSetOutCommand() { return std::make_unique<SetOutCommand>(); }
@@ -229,6 +254,9 @@ std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetC
 std::unique_ptr<Command> makeSetLogLevelCommand() { return std::make_unique<SetLogLevelCommand>(); }
 std::unique_ptr<Command> makeSetCoverMissingCommand() {
     return std::make_unique<SetCoverMissingCommand>();
+}
+std::unique_ptr<Command> makeSetFolderLayoutCommand() {
+    return std::make_unique<SetFolderLayoutCommand>();
 }
 
 }  // namespace optigrab

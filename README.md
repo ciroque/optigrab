@@ -20,7 +20,10 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
   - **TOC:** libcdio (Linux/macOS), Windows SPTI (Windows)
 - Session focus (selected drive); **auto-selects when only one drive is present**
 - Manual artist/album overrides
-- Filenames: `<out>/<Artist> - <Album>/<NN> Title.mp3`
+- Filenames under `--folder-layout` (default **nested**):
+  - `nested` → `<out>/<Artist>/<Album>/<NN> Title.mp3`
+  - `joined` → `<out>/<Artist> - <Album>/<NN> Title.mp3`
+  - `album` → `<out>/<Album>/<NN> Title.mp3`
 - **Cover art (serial):** download first → rip all tracks → write `cover.jpg` + embed into each MP3  
   (local `set cover` / `--cover` preferred; else MusicBrainz Disc ID → Cover Art Archive via `curl`)
 
@@ -110,6 +113,7 @@ optigrab --drive 0 \
 | `--cover-missing <p>` | `ask` (default) \| `continue` \| `abort` when no cover |
 | `--log-level <level>` | `trace` `debug` `info` `warn` `error` `fatal` `off` |
 | `--quality` | `V0` `V2` `192` `256` `320` |
+| `--folder-layout` | `nested` `joined` `album` (default `nested`) |
 | `--extractor` | Platform-dependent (`ffmpeg`, …) |
 | `--encoder` | `ffmpeg` |
 | `-h` / `--help` / `--version` | Meta |
@@ -127,6 +131,7 @@ Exit codes: `0` ok, `1` usage/command error, `2` rip completed with track failur
 | `detail drive` / `detail disc` | Session / disc info |
 | `rip track <all\|N\|N-M\|…>` | Extract + encode |
 | `set out\|quality\|artist\|album` | Session options |
+| `set folderlayout nested\|joined\|album` | Album folder layout under `out` |
 | `set extractor …` | Swap extractor (platform-dependent) |
 | `set encoder <ffmpeg>` | Swap encoder |
 | `help` / `cls` / `exit` | Shell utilities |

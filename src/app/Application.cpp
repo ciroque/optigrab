@@ -36,6 +36,9 @@ void Application::applyLaunchArgs(const LaunchArgs& args) {
         // One-shot default: ask (session already defaults to ask; restate for clarity).
         ctx_->session.setCoverMissingPolicy(CoverMissingPolicy::Ask);
     }
+    if (args.folderLayout) {
+        ctx_->session.setFolderLayout(*args.folderLayout);
+    }
     if (args.logLevel) {
         ctx_->log.setLevel(*args.logLevel);
         ctx_->log.debug(std::string("log level set to ") + toString(*args.logLevel));

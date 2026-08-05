@@ -3,22 +3,60 @@
 #include <catch2/catch_test_macros.hpp>
 
 using optigrab::buildTrackPath;
+using optigrab::FolderLayout;
 using optigrab::sanitizeFilename;
 using optigrab::Tags;
 
-TEST_CASE("sanitizeFilename strips banned characters", "[filename]") {
-    REQUIRE(sanitizeFilename("A/B:C*") == "A_B_C_");
-    REQUIRE(sanitizeFilename("") == "Unknown");
-}
+namespace {
 
-TEST_CASE("buildTrackPath uses artist album and track title", "[filename]") {
+Tags sampleTags() {
     Tags tags;
     tags.artist = "Artist";
     tags.albumArtist = "Artist";
     tags.album = "Album";
     tags.title = "Hello";
     tags.trackNumber = 3;
-    const auto p = buildTrackPath("/music", tags);
+    return tags;
+}
+
+}  // namespace
+
+TEST_CASE("sanitizeFilename strips banned characters", "[filename]") {
+    REQUIRE(sanitizeFilename("A/B:C*") == "A_B_C_");
+    REQUIRE(sanitizeFilename("") == "Unknown");
+}
+
+TEST_CASE("buildTrackPath nested is Artist/Album/track", "[filename]") {
+    const auto p = buildTrackPath("/music", sampleTags(), FolderLayout::Nested);
+    REQUIRE(p.filename() == "03 Hello.mp3");
+    REQUIRE(p.parent_path().filename() == "Album");
+    REQUIRE(p.parent_path().parent_path().filename() == "Artist");
+    REQUIRE(p == std::filesystem::path("/music") / "Artist" / "Album" / "03 Hello.mp3");
+}
+
+TEST_CASE("buildTrackPath joined is Artist - Album/track", "[filename]") {
+    const auto p = buildTrackPath("/music", sampleTags(), FolderLayout::Joined);
     REQUIRE(p.filename() == "03 Hello.mp3");
     REQUIRE(p.parent_path().filename() == "Artist - Album");
+}
+
+TEST_CASE("buildTrackPath album is Album/track only", "[filename]") {
+    const auto p = buildTrackPath("/music", sampleTags(), FolderLayout::Album);
+    REQUIRE(p.filename() == "03 Hello.mp3");
+    REQUIRE(p.parent_path().filename() == "Album");
+    REQUIRE(p.parent_path().parent_path().filename() == "music");
+}
+
+TEST_CASE("buildTrackPath defaults to nested", "[filename]") {
+    const auto p = buildTrackPath("/music", sampleTags());
+    REQUIRE(p.parent_path().filename() == "Album");
+    REQUIRE(p.parent_path().parent_path().filename() == "Artist");
+}
+
+TEST_CASE("buildTrackPath prefers albumArtist for folder name", "[filename]") {
+    Tags tags = sampleTags();
+    tags.artist = "Track Artist";
+    tags.albumArtist = "Album Artist";
+    const auto p = buildTrackPath("/music", tags, FolderLayout::Nested);
+    REQUIRE(p.parent_path().parent_path().filename() == "Album Artist");
 }

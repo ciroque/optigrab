@@ -70,6 +70,13 @@ enum class CoverMissingPolicy {
     Abort,     // stop before extract
 };
 
+// How album folders are laid out under the output directory.
+enum class FolderLayout {
+    Nested,  // out/Artist/Album/track.mp3
+    Joined,  // out/Artist - Album/track.mp3
+    Album,   // out/Album/track.mp3
+};
+
 inline const char* toString(ExtractorKind k) {
     switch (k) {
     case ExtractorKind::Ffmpeg: return "ffmpeg";
@@ -102,6 +109,15 @@ inline const char* toString(CoverMissingPolicy p) {
     case CoverMissingPolicy::Ask: return "ask";
     case CoverMissingPolicy::Continue: return "continue";
     case CoverMissingPolicy::Abort: return "abort";
+    }
+    return "unknown";
+}
+
+inline const char* toString(FolderLayout layout) {
+    switch (layout) {
+    case FolderLayout::Nested: return "nested";
+    case FolderLayout::Joined: return "joined";
+    case FolderLayout::Album: return "album";
     }
     return "unknown";
 }

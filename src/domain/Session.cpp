@@ -66,6 +66,10 @@ void Session::setCoverMissingPolicy(CoverMissingPolicy policy) { coverMissingPol
 
 CoverMissingPolicy Session::coverMissingPolicy() const { return coverMissingPolicy_; }
 
+void Session::setFolderLayout(FolderLayout layout) { folderLayout_ = layout; }
+
+FolderLayout Session::folderLayout() const { return folderLayout_; }
+
 void Session::setExtractor(ExtractorKind kind) { extractor_ = kind; }
 
 void Session::setEncoder(EncoderKind kind) { encoder_ = kind; }

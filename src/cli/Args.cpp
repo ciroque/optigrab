@@ -33,6 +33,13 @@ EncoderKind parseEncoderFlag(const std::string& s) {
     throw ParseError("Unknown --encoder value: " + s + " (ffmpeg)");
 }
 
+FolderLayout parseFolderLayoutFlag(const std::string& s) {
+    if (s == "nested") return FolderLayout::Nested;
+    if (s == "joined") return FolderLayout::Joined;
+    if (s == "album") return FolderLayout::Album;
+    throw ParseError("Unknown --folder-layout value: " + s + " (nested|joined|album)");
+}
+
 std::string requireValue(const std::vector<std::string>& argv, std::size_t& i,
                          const std::string& flag) {
     if (i + 1 >= argv.size()) {
@@ -58,6 +65,10 @@ std::string usageText() {
         << "  --cover <image>        Local cover image (skip network if set)\n"
         << "  --no-cover             Disable cover art fetch/embed\n"
         << "  --cover-missing <p>    ask|continue|abort when no cover (default: ask)\n"
+        << "  --folder-layout <l>    nested|joined|album (default: nested)\n"
+        << "                           nested  out/Artist/Album/track.mp3\n"
+        << "                           joined  out/Artist - Album/track.mp3\n"
+        << "                           album   out/Album/track.mp3\n"
         << "  --log-level <level>    trace|debug|info|warn|error|fatal|off (default: info)\n"
         << "  --quality <preset>     V0 | V2 | 192 | 256 | 320\n";
 #ifdef _WIN32
@@ -149,6 +160,11 @@ LaunchArgs parseLaunchArgs(const std::vector<std::string>& argv) {
                                  " (trace|debug|info|warn|error|fatal|off)");
             }
             out.logLevel = *level;
+            ++i;
+            continue;
+        }
+        if (a == "--folder-layout" || a == "--folderlayout") {
+            out.folderLayout = parseFolderLayoutFlag(requireValue(argv, i, a));
             ++i;
             continue;
         }

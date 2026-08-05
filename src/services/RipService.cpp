@@ -232,7 +232,8 @@ std::vector<RipResult> RipService::ripTracks(Session& session,
 
             try {
                 const auto tags = makeTags(session, track, totalOnDisc);
-                const auto outMp3 = buildTrackPath(session.outputDirectory(), tags);
+                const auto outMp3 =
+                    buildTrackPath(session.outputDirectory(), tags, session.folderLayout());
                 ensureParent(outMp3);
                 if (albumDir.empty()) {
                     albumDir = outMp3.parent_path();

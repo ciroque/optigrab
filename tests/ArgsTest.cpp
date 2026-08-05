@@ -3,6 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+using optigrab::FolderLayout;
 using optigrab::parseLaunchArgs;
 using optigrab::ParseError;
 using optigrab::QualityPreset;
@@ -47,4 +48,11 @@ TEST_CASE("parseLaunchArgs double dash ends options", "[args]") {
     const auto a = parseLaunchArgs({"--drive", "1", "--", "list", "track"});
     REQUIRE(a.drive == "1");
     REQUIRE(a.command == std::vector<std::string>{"list", "track"});
+}
+
+TEST_CASE("parseLaunchArgs folder-layout", "[args]") {
+    REQUIRE(parseLaunchArgs({"--folder-layout", "nested"}).folderLayout == FolderLayout::Nested);
+    REQUIRE(parseLaunchArgs({"--folder-layout", "joined"}).folderLayout == FolderLayout::Joined);
+    REQUIRE(parseLaunchArgs({"--folderlayout", "album"}).folderLayout == FolderLayout::Album);
+    REQUIRE_THROWS_AS(parseLaunchArgs({"--folder-layout", "flat"}), ParseError);
 }
