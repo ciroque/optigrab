@@ -41,7 +41,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg cdparanoia
+          # No Homebrew formula for classic "cdparanoia"; use libcdio-paranoia (linked) + ffmpeg.
+          brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
 

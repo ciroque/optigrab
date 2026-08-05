@@ -13,7 +13,8 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 - **Leveled logging**: `trace` `debug` `info` `warn` `error` `fatal` (`--log-level`, `set loglevel`)
 - **Actionable device errors** (permissions, busy drive, empty tray, …)
 - Swappable backends via clean ports:
-  - **Linux / macOS extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
+  - **Linux extract:** `cdparanoia` (default), `ffmpeg`, `libcdio_paranoia`
+  - **macOS extract:** `libcdio` (default; linked), `ffmpeg` (no Homebrew `cdparanoia`)
   - **Windows extract:** `ffmpeg` (default)
   - **Encode:** `ffmpeg` + libmp3lame (tags included)
   - **TOC:** libcdio (Linux/macOS), Windows SPTI (Windows)
@@ -42,11 +43,12 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
 ### macOS
 
 - CMake ≥ 3.20, Apple Clang (C++20)
-- Homebrew packages: `libcdio`, `libcdio-paranoia` (if separate), `ffmpeg`, `cdparanoia`, `pkg-config`
+- Homebrew packages: `libcdio`, `libcdio-paranoia`, `ffmpeg`, `pkg-config`
+- There is **no** Homebrew formula for classic `cdparanoia`; default extractor is **libcdio**
 - External USB optical drives appear as `/dev/rdiskN` (`list drive`)
 
 ```bash
-brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg cdparanoia
+brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg
 ```
 
 ## Build

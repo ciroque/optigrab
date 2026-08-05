@@ -25,6 +25,9 @@ inline constexpr bool isUnix() {
 inline constexpr ExtractorKind defaultExtractor() {
 #ifdef _WIN32
     return ExtractorKind::Ffmpeg;
+#elif defined(__APPLE__)
+    // Homebrew has no classic "cdparanoia" formula; use linked libcdio_paranoia.
+    return ExtractorKind::LibcdioParanoia;
 #else
     return ExtractorKind::Cdparanoia;
 #endif

@@ -70,7 +70,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg cdparanoia
+          # No Homebrew formula for classic "cdparanoia"; use libcdio-paranoia (linked) + ffmpeg.
+          brew install cmake pkg-config libcdio libcdio-paranoia ffmpeg
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
 
@@ -110,14 +111,14 @@ jobs:
             cp build/optigrab "$STAGE/"
             cat > "$STAGE/RUNTIME.txt" <<'EOF'
           Runtime dependencies (Homebrew recommended):
-            - ffmpeg (with libmp3lame)
-            - cdparanoia (default extractor)
-            - libcdio / libcdio_paranoia (linked; install via brew if the binary is dynamic)
+            - ffmpeg (with libmp3lame) for encode (+ optional extract)
+            - libcdio / libcdio-paranoia (linked; default extractor is libcdio)
 
-            brew install ffmpeg cdparanoia libcdio
+            brew install ffmpeg libcdio libcdio-paranoia
 
           Optical devices appear as /dev/rdiskN (USB SuperDrive / external CD).
           Use: list drive
+          Default extractor on macOS: libcdio (set extractor ffmpeg to override)
           EOF
           else
             cp build/optigrab "$STAGE/"
