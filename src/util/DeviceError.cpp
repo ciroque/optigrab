@@ -25,10 +25,8 @@ std::string winHint(DWORD err) {
         return "Access denied. Close other apps using the drive, or run from an elevated "
                "prompt if policy requires it.";
     case ERROR_FILE_NOT_FOUND:
+    case ERROR_PATH_NOT_FOUND:
     case ERROR_NOT_READY:
-#ifdef ERROR_PATH_NOT_READY
-    case ERROR_PATH_NOT_READY:
-#endif
         return "Drive not ready. Insert an audio CD and wait for it to spin up; close Explorer "
                "preview windows that may lock the tray.";
     case ERROR_BUSY:
