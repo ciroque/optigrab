@@ -5,11 +5,7 @@
 
 #ifdef _WIN32
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <winioctl.h>
+#include "optigrab/adapters/windows/WindowsHeaders.hpp"
 
 #include <cctype>
 #include <string>
@@ -41,7 +37,6 @@ void WindowsDriveEjector::eject(const std::string& devicePath) {
     }
 
     DWORD bytes = 0;
-    // Allow removal, then eject.
     PREVENT_MEDIA_REMOVAL pmr{};
     pmr.PreventMediaRemoval = FALSE;
     (void)DeviceIoControl(h, IOCTL_STORAGE_MEDIA_REMOVAL, &pmr, sizeof(pmr), nullptr, 0, &bytes,
