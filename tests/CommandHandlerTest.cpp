@@ -90,6 +90,10 @@ TEST_CASE("detail context dumps session without drive", "[cli]") {
     REQUIRE(text.find("Folder layout") != std::string::npos);
     REQUIRE(text.find("Cover art") != std::string::npos);
     REQUIRE(text.find("Logging") != std::string::npos);
+    REQUIRE(text.find("set out / --out") != std::string::npos);
+    REQUIRE(text.find("set folderlayout / --folder-layout") != std::string::npos);
+    REQUIRE(text.find("set artist / --artist") != std::string::npos);
+    REQUIRE(text.find("select drive / --drive") != std::string::npos);
 }
 
 TEST_CASE("exit sets shouldExit", "[cli]") {
