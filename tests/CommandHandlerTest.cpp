@@ -70,6 +70,28 @@ TEST_CASE("set artist and album", "[cli]") {
     REQUIRE(ctx.session.album() == "Live At Budokan");
 }
 
+TEST_CASE("detail context dumps session without drive", "[cli]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, R"(set artist "The Band")");
+    handler.execute(ctx, R"(set album "Live")");
+    handler.execute(ctx, "set out /tmp/music");
+    handler.execute(ctx, "set folderlayout joined");
+    handler.execute(ctx, "detail context");
+    REQUIRE(ctx.exitCode == 0);
+    const auto text = out.str();
+    REQUIRE(text.find("Context") != std::string::npos);
+    REQUIRE(text.find("The Band") != std::string::npos);
+    REQUIRE(text.find("Live") != std::string::npos);
+    REQUIRE(text.find("/tmp/music") != std::string::npos);
+    REQUIRE(text.find("joined") != std::string::npos);
+    REQUIRE(text.find("(none selected)") != std::string::npos);
+    REQUIRE(text.find("Folder layout") != std::string::npos);
+    REQUIRE(text.find("Cover art") != std::string::npos);
+    REQUIRE(text.find("Logging") != std::string::npos);
+}
+
 TEST_CASE("exit sets shouldExit", "[cli]") {
     std::ostringstream out, err;
     auto ctx = makeTestContext(out, err);

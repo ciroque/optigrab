@@ -23,6 +23,7 @@ public:
   list track              List tracks on the selected disc
   detail drive            Show selected drive / session settings
   detail disc             Show disc summary
+  detail context          Dump full session/context (no drive required)
   rip track <spec>        Rip tracks (all | N | N-M | N,M,...)
   set out <dir>           Output directory
   set quality <preset>    V0 | V2 | 192 | 256 | 320

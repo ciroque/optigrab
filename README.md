@@ -130,6 +130,7 @@ Exit codes: `0` ok, `1` usage/command error, `2` rip completed with track failur
 | `eject drive [n\|path]` | Eject tray (selected drive if omitted) |
 | `list track` | List tracks (loads TOC) |
 | `detail drive` / `detail disc` | Session / disc info |
+| `detail context` | Full session dump (drive, disc, out, cover, log, backends) |
 | `rip track <all\|N\|N-M\|…>` | Extract + encode |
 | `set out\|quality\|artist\|album` | Session options |
 | `set folderlayout nested\|joined\|album` | Album folder layout under `out` |

@@ -14,6 +14,7 @@ std::unique_ptr<Command> makeSelectDriveCommand();
 std::unique_ptr<Command> makeEjectDriveCommand();
 std::unique_ptr<Command> makeDetailDriveCommand();
 std::unique_ptr<Command> makeDetailDiscCommand();
+std::unique_ptr<Command> makeDetailContextCommand();
 std::unique_ptr<Command> makeSetOutCommand();
 std::unique_ptr<Command> makeSetQualityCommand();
 std::unique_ptr<Command> makeSetArtistCommand();
@@ -125,6 +126,7 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeEjectDriveCommand());
     h.addCommand(makeDetailDriveCommand());
     h.addCommand(makeDetailDiscCommand());
+    h.addCommand(makeDetailContextCommand());
     h.addCommand(makeSetOutCommand());
     h.addCommand(makeSetQualityCommand());
     h.addCommand(makeSetArtistCommand());
