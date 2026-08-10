@@ -70,76 +70,91 @@ public:
         struct Row {
             std::string key;
             std::string value;
+            std::string choices;  // enum / discrete options; "-" if free-form
             std::string via;
         };
         std::vector<Row> rows;
 
-        auto add = [&](std::string key, std::string value, std::string via) {
-            rows.push_back(Row{std::move(key), std::move(value), std::move(via)});
+        auto add = [&](std::string key, std::string value, std::string choices, std::string via) {
+            rows.push_back(
+                Row{std::move(key), std::move(value), std::move(choices), std::move(via)});
         };
         auto opt = [](const std::optional<std::string>& v) -> std::string {
             return v ? *v : std::string("-");
         };
 
-        add("platform", platformName(), "-");
-        add("exitcode", std::to_string(ctx.exitCode), "-");
-        add("rip", s.ripInProgress() ? "yes" : "no", "rip track");
+#ifdef _WIN32
+        const char* extractorChoices = "ffmpeg";
+#else
+        const char* extractorChoices = "ffmpeg|cdparanoia|libcdio";
+#endif
+
+        add("platform", platformName(), "-", "-");
+        add("exitcode", std::to_string(ctx.exitCode), "-", "-");
+        add("rip", s.ripInProgress() ? "yes" : "no", "yes|no", "rip track");
 
         if (s.hasSelectedDrive()) {
             const auto& d = s.selectedDrive();
-            add("drive", d.path, "select drive / --drive");
-            add("drive.index", std::to_string(d.index), "select drive / --drive");
-            add("drive.model", d.model.empty() ? "-" : d.model, "list drive");
+            add("drive", d.path, "-", "select drive / --drive");
+            add("drive.index", std::to_string(d.index), "-", "select drive / --drive");
+            add("drive.model", d.model.empty() ? "-" : d.model, "-", "list drive");
         } else {
-            add("drive", "-", "select drive / --drive");
+            add("drive", "-", "-", "select drive / --drive");
         }
 
         if (s.hasDisc()) {
             const auto& disc = s.disc();
-            add("disc.device", disc.devicePath, "list track");
-            add("disc.album", opt(disc.album), "disc / set album");
-            add("disc.artist", opt(disc.albumArtist), "disc / set artist");
-            add("disc.tracks", std::to_string(disc.tracks.size()), "list track");
+            add("disc.device", disc.devicePath, "-", "list track");
+            add("disc.album", opt(disc.album), "-", "disc / set album");
+            add("disc.artist", opt(disc.albumArtist), "-", "disc / set artist");
+            add("disc.tracks", std::to_string(disc.tracks.size()), "-", "list track");
             int audio = 0;
             for (const auto& t : disc.tracks) {
                 if (t.audio) {
                     ++audio;
                 }
             }
-            add("disc.audio", std::to_string(audio), "list track");
+            add("disc.audio", std::to_string(audio), "-", "list track");
         } else {
-            add("disc", "-", "list track / detail disc");
+            add("disc", "-", "-", "list track / detail disc");
         }
 
-        add("out", s.outputDirectory(), "set out / --out");
-        add("folderlayout", toString(s.folderLayout()), "set folderlayout / --folder-layout");
-        add("quality", toString(s.quality()), "set quality / --quality");
-        add("artist", opt(s.artist()), "set artist / --artist");
-        add("album", opt(s.album()), "set album / --album");
-        add("extractor", toString(s.extractor()), "set extractor / --extractor");
-        add("encoder", toString(s.encoder()), "set encoder / --encoder");
-        add("coverart", s.fetchCoverArt() ? "on" : "off", "set coverart / --no-cover");
-        add("cover", opt(s.coverPath()), "set cover / --cover");
-        add("covermissing", toString(s.coverMissingPolicy()),
+        add("out", s.outputDirectory(), "-", "set out / --out");
+        add("folderlayout", toString(s.folderLayout()), "nested|joined|album",
+            "set folderlayout / --folder-layout");
+        add("quality", toString(s.quality()), "V0|V2|192|256|320", "set quality / --quality");
+        add("artist", opt(s.artist()), "-", "set artist / --artist");
+        add("album", opt(s.album()), "-", "set album / --album");
+        add("extractor", toString(s.extractor()), extractorChoices,
+            "set extractor / --extractor");
+        add("encoder", toString(s.encoder()), "ffmpeg", "set encoder / --encoder");
+        add("coverart", s.fetchCoverArt() ? "on" : "off", "on|off",
+            "set coverart / --no-cover");
+        add("cover", opt(s.coverPath()), "path|none", "set cover / --cover");
+        add("covermissing", toString(s.coverMissingPolicy()), "ask|continue|abort",
             "set covermissing / --cover-missing");
-        add("loglevel", toString(ctx.log.level()), "set loglevel / --log-level");
-        add("logpath", opt(s.logPathDir()), "set logpath / --log-path");
+        add("loglevel", toString(ctx.log.level()), "trace|debug|info|warn|error|fatal|off",
+            "set loglevel / --log-level");
+        add("logpath", opt(s.logPathDir()), "dir|none", "set logpath / --log-path");
         add("logfile",
             ctx.log.secondaryFilePath() ? ctx.log.secondaryFilePath()->string() : std::string("-"),
-            "<Artist> - <Album>.log");
+            "<Artist> - <Album>.log", "from logpath");
 
         // Column widths from content (capped so long paths don't blow up the table).
-        constexpr std::size_t kMaxValue = 48;
-        std::size_t wKey = 3;    // "Key"
-        std::size_t wValue = 5;  // "Value"
-        std::size_t wVia = 3;    // "Via"
+        constexpr std::size_t kMaxValue = 40;
+        constexpr std::size_t kMaxChoices = 48;
+        std::size_t wKey = 3;       // "Key"
+        std::size_t wValue = 5;     // "Value"
+        std::size_t wChoices = 7;   // "Choices"
+        std::size_t wVia = 3;       // "Via"
         for (const auto& r : rows) {
             wKey = std::max(wKey, r.key.size());
             wValue = std::max(wValue, std::min(r.value.size(), kMaxValue));
+            wChoices = std::max(wChoices, std::min(r.choices.size(), kMaxChoices));
             wVia = std::max(wVia, r.via.size());
         }
 
-        auto trunc = [&](std::string s, std::size_t w) {
+        auto trunc = [](std::string s, std::size_t w) {
             if (s.size() > w) {
                 if (w <= 3) {
                     return s.substr(0, w);
@@ -151,18 +166,20 @@ public:
 
         auto rule = [&]() {
             ctx.out << std::string(wKey, '-') << "  " << std::string(wValue, '-') << "  "
-                    << std::string(wVia, '-') << "\n";
+                    << std::string(wChoices, '-') << "  " << std::string(wVia, '-') << "\n";
         };
 
         ctx.out << std::left << std::setw(static_cast<int>(wKey)) << "Key" << "  "
                 << std::setw(static_cast<int>(wValue)) << "Value" << "  "
+                << std::setw(static_cast<int>(wChoices)) << "Choices" << "  "
                 << "Via"
                 << "\n";
         rule();
         for (const auto& r : rows) {
             ctx.out << std::left << std::setw(static_cast<int>(wKey)) << r.key << "  "
                     << std::setw(static_cast<int>(wValue)) << trunc(r.value, kMaxValue) << "  "
-                    << r.via << "\n";
+                    << std::setw(static_cast<int>(wChoices)) << trunc(r.choices, kMaxChoices)
+                    << "  " << r.via << "\n";
         }
     }
     [[nodiscard]] std::string name() const override { return "detail context"; }

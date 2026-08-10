@@ -83,6 +83,7 @@ TEST_CASE("detail context dumps session without drive", "[cli]") {
     const auto text = out.str();
     REQUIRE(text.find("Key") != std::string::npos);
     REQUIRE(text.find("Value") != std::string::npos);
+    REQUIRE(text.find("Choices") != std::string::npos);
     REQUIRE(text.find("Via") != std::string::npos);
     REQUIRE(text.find("artist") != std::string::npos);
     REQUIRE(text.find("The Band") != std::string::npos);
@@ -92,6 +93,10 @@ TEST_CASE("detail context dumps session without drive", "[cli]") {
     REQUIRE(text.find("/tmp/music") != std::string::npos);
     REQUIRE(text.find("folderlayout") != std::string::npos);
     REQUIRE(text.find("joined") != std::string::npos);
+    REQUIRE(text.find("nested|joined|album") != std::string::npos);
+    REQUIRE(text.find("V0|V2|192|256|320") != std::string::npos);
+    REQUIRE(text.find("ask|continue|abort") != std::string::npos);
+    REQUIRE(text.find("trace|debug|info|warn|error|fatal|off") != std::string::npos);
     REQUIRE(text.find("set out / --out") != std::string::npos);
     REQUIRE(text.find("set folderlayout / --folder-layout") != std::string::npos);
     REQUIRE(text.find("set artist / --artist") != std::string::npos);
