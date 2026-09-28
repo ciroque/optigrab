@@ -41,12 +41,14 @@ set(OPTIGRAB_COMMON_SOURCES
   src/domain/Session.cpp
   src/domain/TrackRange.cpp
   src/domain/DiscId.cpp
+  src/domain/Release.cpp
   src/log/LogLevel.cpp
   src/log/Logger.cpp
   src/services/Filename.cpp
   src/services/RipService.cpp
   src/util/Process.cpp
   src/util/DeviceError.cpp
+  src/adapters/musicbrainz/MusicBrainzJson.cpp
   src/adapters/cover/LocalCoverArtProvider.cpp
   src/adapters/cover/MusicBrainzCoverArtProvider.cpp
   src/adapters/cover/CompositeCoverArtProvider.cpp
@@ -171,6 +173,7 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/CoverArtPipelineTest.cpp
     tests/LoggerTest.cpp
     tests/MbReleaseParseTest.cpp
+    tests/MusicBrainzJsonTest.cpp
     tests/CoverMissingPolicyTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)
