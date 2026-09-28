@@ -131,3 +131,89 @@ TEST_CASE("rip track all with fakes", "[cli]") {
     REQUIRE(out.str().find("succeeded") != std::string::npos);
     REQUIRE(out.str().find("failed") != std::string::npos);
 }
+
+namespace {
+
+Release fakeRelease() {
+    Release r;
+    r.id = "52d747b1-420b-4d55-ba01-a3ec23d1163d";
+    r.title = "Piece of Mind";
+    r.artist = "Iron Maiden";
+    r.date = "1983-05-16";
+    r.country = "GB";
+    r.hasFrontCover = true;
+    r.mediumPosition = 1;
+    r.mediumCount = 1;
+    r.tracks = {ReleaseTrack{1, "Where Eagles Dare", "Iron Maiden"},
+                ReleaseTrack{2, "Revelations", "Iron Maiden"}};
+    return r;
+}
+
+}  // namespace
+
+TEST_CASE("lookup disc prints releases and tracks for the selected disc", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    auto releases = std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease()});
+    ctx.releases = releases;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "select drive 0");
+    handler.execute(ctx, "lookup disc");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(releases->calls == 1);
+    const auto text = out.str();
+    REQUIRE(text.find("Disc ID  : " + releases->lastDiscId) != std::string::npos);
+    REQUIRE(text.find("Iron Maiden - Piece of Mind") != std::string::npos);
+    REQUIRE(text.find("1983-05-16") != std::string::npos);
+    REQUIRE(text.find("Where Eagles Dare") != std::string::npos);
+    REQUIRE(text.find("Revelations") != std::string::npos);
+}
+
+TEST_CASE("lookup disc with explicit disc ID needs no drive", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);  // two drives, none selected
+    auto releases = std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease()});
+    ctx.releases = releases;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "lookup disc VDjKDudtLNGvkArIWTSGDS3NlR8-");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(releases->lastDiscId == "VDjKDudtLNGvkArIWTSGDS3NlR8-");
+    REQUIRE(out.str().find("Piece of Mind") != std::string::npos);
+}
+
+TEST_CASE("lookup disc offers submit link when disc is unknown", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    ctx.releases = std::make_shared<FakeReleaseLookup>();
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "select drive 0");
+    handler.execute(ctx, "lookup disc");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(out.str().find("Not in MusicBrainz yet") != std::string::npos);
+    REQUIRE(out.str().find("https://musicbrainz.org/cdtoc/attach?id=") != std::string::npos);
+}
+
+TEST_CASE("lookup disc rejects malformed disc IDs", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    auto releases = std::make_shared<FakeReleaseLookup>();
+    ctx.releases = releases;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "lookup disc not-a-disc-id");
+    REQUIRE(ctx.exitCode != 0);
+    REQUIRE(releases->calls == 0);
+    REQUIRE(err.str().find("Not a MusicBrainz disc ID") != std::string::npos);
+}
+
+TEST_CASE("lookup disc reports service failures", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    auto releases = std::make_shared<FakeReleaseLookup>();
+    releases->failWith = "MusicBrainz lookup failed: curl exit 22 (HTTP 503)";
+    ctx.releases = releases;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "select drive 0");
+    handler.execute(ctx, "lookup disc");
+    REQUIRE(ctx.exitCode != 0);
+    REQUIRE(err.str().find("HTTP 503") != std::string::npos);
+}

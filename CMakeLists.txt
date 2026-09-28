@@ -69,6 +69,7 @@ set(OPTIGRAB_COMMON_SOURCES
   src/cli/commands/DetailCommand.cpp
   src/cli/commands/SetCommand.cpp
   src/cli/commands/RipCommand.cpp
+  src/cli/commands/LookupCommand.cpp
   src/cli/commands/HelpCommand.cpp
   src/cli/commands/ExitCommand.cpp
   src/cli/commands/ClsCommand.cpp

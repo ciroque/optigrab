@@ -83,6 +83,7 @@ std::string usageText() {
         << "Examples:\n"
         << "  optigrab list drive\n"
         << "  optigrab --drive 0 list track\n"
+        << "  optigrab --drive 0 lookup disc\n"
         << "  optigrab --drive 0 --out ~/Music --artist \"The Band\" --album \"Live\" "
            "rip track all\n"
         << "\nPlatform default extractor: " << toString(defaultExtractor()) << " ("

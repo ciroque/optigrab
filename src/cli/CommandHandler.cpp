@@ -28,6 +28,7 @@ std::unique_ptr<Command> makeSetLogPathCommand();
 std::unique_ptr<Command> makeSetCoverMissingCommand();
 std::unique_ptr<Command> makeSetFolderLayoutCommand();
 std::unique_ptr<Command> makeRipTrackCommand();
+std::unique_ptr<Command> makeLookupDiscCommand();
 std::unique_ptr<Command> makeHelpCommand();
 std::unique_ptr<Command> makeExitCommand();
 std::unique_ptr<Command> makeClsCommand();
@@ -140,6 +141,7 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeSetCoverMissingCommand());
     h.addCommand(makeSetFolderLayoutCommand());
     h.addCommand(makeRipTrackCommand());
+    h.addCommand(makeLookupDiscCommand());
     h.addCommand(makeHelpCommand());
     h.addCommand(makeExitCommand());
     h.addCommand(makeClsCommand());

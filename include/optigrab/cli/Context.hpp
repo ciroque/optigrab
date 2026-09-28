@@ -4,6 +4,7 @@
 #include "optigrab/log/Logger.hpp"
 #include "optigrab/ports/DriveEjector.hpp"
 #include "optigrab/ports/DriveEnumerator.hpp"
+#include "optigrab/ports/ReleaseLookup.hpp"
 #include "optigrab/services/RipService.hpp"
 
 #include <functional>
@@ -19,6 +20,7 @@ struct Context {
     std::shared_ptr<DriveEnumerator> drives;
     std::shared_ptr<DriveEjector> ejector;
     std::shared_ptr<RipService> ripper;
+    std::shared_ptr<ReleaseLookup> releases;  // MusicBrainz; null = lookup unavailable
     std::function<std::shared_ptr<RipService>(ExtractorKind, EncoderKind)> rebuildRipper;
     std::ostream& out;   // user-facing tables / command results (not teed to log file)
     std::ostream& err;   // primary logger stream (usually stderr)

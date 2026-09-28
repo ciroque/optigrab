@@ -99,6 +99,7 @@ std::unique_ptr<Context> makeContext(AppServices& services, std::ostream& out, s
     auto ctx = std::make_unique<Context>(services.drives, std::move(ripper), std::move(rebuild), out,
                                          err, services.ejector);
     ctx->session.setExtractor(extractor);
+    ctx->releases = services.releases;
     return ctx;
 }
 
