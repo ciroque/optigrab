@@ -33,6 +33,10 @@ public:
     // Selected release, or nullptr.
     [[nodiscard]] const Release* selectedRelease() const;
 
+    // When false, never query MusicBrainz automatically (lookup disc still works).
+    void setMusicBrainzEnabled(bool enabled);
+    [[nodiscard]] bool musicBrainzEnabled() const;
+
     void setOutputDirectory(std::string path);
     [[nodiscard]] const std::string& outputDirectory() const;
 
@@ -79,6 +83,7 @@ private:
     std::optional<DiscInfo> disc_;
     std::optional<DiscLookup> discLookup_;
     std::optional<std::size_t> selectedRelease_;
+    bool musicBrainzEnabled_{true};
     std::string outputDirectory_{"."};
     QualityPreset quality_{QualityPreset::V0};
     std::optional<std::string> artist_;

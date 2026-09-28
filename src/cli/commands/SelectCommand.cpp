@@ -83,6 +83,9 @@ public:
             ctx.out << ", " << r->country;
         }
         ctx.out << ").\n";
+        if (ctx.session.hasDisc()) {
+            ctx.ripper->loadDisc(ctx.session, &ctx.log);  // re-apply titles/album from it
+        }
     }
     [[nodiscard]] std::string name() const override { return "select release"; }
 };

@@ -33,6 +33,7 @@ public:
   set album <name>        Album name (tags + folder naming)
   set cover <path>|none   Local cover image (preferred over network)
   set coverart on|off     Enable/disable cover download+embed
+  set musicbrainz on|off  Auto-fill titles/album/artist/year from MusicBrainz
   set covermissing <p>    ask|continue|abort if no cover (default: ask)
   set folderlayout <l>    nested|joined|album (default: nested)
                             nested  out/Artist/Album/track.mp3

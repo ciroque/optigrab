@@ -27,6 +27,7 @@ struct DiscInfo {
     std::vector<TrackInfo> tracks;
     std::optional<std::string> album;
     std::optional<std::string> albumArtist;
+    std::optional<int> year;
 };
 
 struct Tags {

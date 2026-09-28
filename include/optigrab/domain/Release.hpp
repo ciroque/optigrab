@@ -1,5 +1,7 @@
 #pragma once
 
+#include "optigrab/domain/Types.hpp"
+
 #include <optional>
 #include <string>
 #include <vector>
@@ -35,5 +37,10 @@ struct DiscLookup {
     std::string discId;
     std::vector<Release> releases;
 };
+
+// Copy release album/artist/year and track titles/artists onto the disc.
+// Release tracks map to the disc's audio tracks in order. Returns false (disc untouched)
+// if the track counts differ, since titles would land on the wrong tracks.
+bool applyRelease(DiscInfo& disc, const Release& release);
 
 }  // namespace optigrab

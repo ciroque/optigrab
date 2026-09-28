@@ -74,6 +74,10 @@ const Release* Session::selectedRelease() const {
     return &discLookup_->releases[*selectedRelease_];
 }
 
+void Session::setMusicBrainzEnabled(bool enabled) { musicBrainzEnabled_ = enabled; }
+
+bool Session::musicBrainzEnabled() const { return musicBrainzEnabled_; }
+
 void Session::setOutputDirectory(std::string path) { outputDirectory_ = std::move(path); }
 
 const std::string& Session::outputDirectory() const { return outputDirectory_; }

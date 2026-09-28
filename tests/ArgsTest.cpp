@@ -63,3 +63,10 @@ TEST_CASE("parseLaunchArgs log-path", "[args]") {
     REQUIRE(a.command == std::vector<std::string>{"list", "drive"});
     REQUIRE(parseLaunchArgs({"--logpath", "~/logs"}).logPath == "~/logs");
 }
+
+TEST_CASE("parseLaunchArgs --no-musicbrainz", "[args]") {
+    REQUIRE_FALSE(parseLaunchArgs({"list", "track"}).musicBrainz.has_value());
+    const auto a = parseLaunchArgs({"--no-musicbrainz", "rip", "track", "all"});
+    REQUIRE(a.musicBrainz == false);
+    REQUIRE(a.command.size() == 3);
+}

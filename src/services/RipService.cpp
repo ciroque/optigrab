@@ -1,5 +1,6 @@
 #include "optigrab/services/RipService.hpp"
 
+#include "optigrab/domain/DiscId.hpp"
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/services/Filename.hpp"
 
@@ -36,13 +37,63 @@ RipService::RipService(std::shared_ptr<TocReader> toc,
                        std::shared_ptr<AudioEncoder> encoder,
                        std::shared_ptr<MetadataProvider> metadata,
                        std::shared_ptr<CoverArtProvider> coverProvider,
-                       std::shared_ptr<CoverArtApplier> coverApplier)
+                       std::shared_ptr<CoverArtApplier> coverApplier,
+                       std::shared_ptr<ReleaseLookup> releases)
     : toc_(std::move(toc)),
       extractor_(std::move(extractor)),
       encoder_(std::move(encoder)),
       metadata_(std::move(metadata)),
       coverProvider_(std::move(coverProvider)),
-      coverApplier_(std::move(coverApplier)) {}
+      coverApplier_(std::move(coverApplier)),
+      releases_(std::move(releases)) {}
+
+void RipService::applyMusicBrainz(Session& session, DiscInfo& disc, Logger* log) {
+    const auto discId = computeMusicBrainzDiscId(disc);
+    if (!discId) {
+        session.clearDiscLookup();
+        return;
+    }
+    if (session.discLookup() && session.discLookup()->discId != *discId) {
+        if (log) {
+            log->debug("[mb] disc changed; dropping previous lookup");
+        }
+        session.clearDiscLookup();
+    }
+
+    if (!session.discLookup() && releases_ && session.musicBrainzEnabled()) {
+        try {
+            session.setDiscLookup(releases_->lookup(*discId, log));
+        } catch (const LookupError& ex) {
+            // Fail soft: rip with placeholder titles rather than not at all.
+            if (log) {
+                log->warn(std::string("[mb] ") + ex.what() + " — using placeholder titles");
+            }
+            return;
+        }
+        const auto count = session.discLookup()->releases.size();
+        if (count > 1 && log) {
+            log->info("[mb] " + std::to_string(count) +
+                      " releases match this disc; using 0. See: lookup disc, select release <n>");
+        }
+    }
+
+    const auto* release = session.selectedRelease();
+    if (!release) {
+        return;
+    }
+    if (!applyRelease(disc, *release)) {
+        if (log) {
+            log->warn("[mb] release " + release->id + " lists " +
+                      std::to_string(release->tracks.size()) +
+                      " track(s) but the disc has a different count; not applying titles");
+        }
+        return;
+    }
+    if (log) {
+        log->info("[mb] using release: " + release->artist + " - " + release->title +
+                  (release->date.empty() ? "" : " (" + release->date + ")"));
+    }
+}
 
 void RipService::loadDisc(Session& session, Logger* log) {
     const auto& drive = session.selectedDrive();
@@ -53,13 +104,17 @@ void RipService::loadDisc(Session& session, Logger* log) {
     if (metadata_) {
         metadata_->enrich(disc);
     }
+    applyMusicBrainz(session, disc, log);
     if (session.album()) {
         disc.album = *session.album();
     }
     if (session.artist()) {
+        // Replace the album artist on its own tracks; keep distinct per-track artists
+        // (compilations, "feat." credits).
+        const auto previous = disc.albumArtist;
         disc.albumArtist = *session.artist();
         for (auto& t : disc.tracks) {
-            if (t.artist.empty()) {
+            if (t.artist.empty() || (previous && t.artist == *previous)) {
                 t.artist = *session.artist();
             }
         }
@@ -75,6 +130,9 @@ Tags RipService::makeTags(const Session& session, const TrackInfo& track, int tr
     tags.trackNumber = track.number;
     tags.trackTotal = trackTotal;
     tags.title = track.title.empty() ? ("Track " + std::to_string(track.number)) : track.title;
+    if (session.hasDisc()) {
+        tags.year = session.disc().year;
+    }
     tags.artist = track.artist;
     if (tags.artist.empty() && session.artist()) {
         tags.artist = *session.artist();

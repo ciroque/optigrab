@@ -19,4 +19,32 @@ std::optional<int> Release::year() const {
     return y;
 }
 
+bool applyRelease(DiscInfo& disc, const Release& release) {
+    std::vector<TrackInfo*> audio;
+    for (auto& t : disc.tracks) {
+        if (t.audio) {
+            audio.push_back(&t);
+        }
+    }
+    if (audio.size() != release.tracks.size()) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < audio.size(); ++i) {
+        const auto& rt = release.tracks[i];
+        if (!rt.title.empty()) {
+            audio[i]->title = rt.title;
+        }
+        audio[i]->artist = rt.artist.empty() ? release.artist : rt.artist;
+    }
+    if (!release.title.empty()) {
+        disc.album = release.title;
+    }
+    if (!release.artist.empty()) {
+        disc.albumArtist = release.artist;
+    }
+    disc.year = release.year();
+    return true;
+}
+
 }  // namespace optigrab

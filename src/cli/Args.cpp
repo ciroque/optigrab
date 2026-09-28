@@ -64,6 +64,7 @@ std::string usageText() {
         << "  --album <name>         Album title override\n"
         << "  --cover <image>        Local cover image (skip network if set)\n"
         << "  --no-cover             Disable cover art fetch/embed\n"
+        << "  --no-musicbrainz       Don't auto-fill titles/album/artist from MusicBrainz\n"
         << "  --cover-missing <p>    ask|continue|abort when no cover (default: ask)\n"
         << "  --folder-layout <l>    nested|joined|album (default: nested)\n"
         << "                           nested  out/Artist/Album/track.mp3\n"
@@ -132,6 +133,11 @@ LaunchArgs parseLaunchArgs(const std::vector<std::string>& argv) {
         }
         if (a == "--cover") {
             out.coverPath = requireValue(argv, i, a);
+            ++i;
+            continue;
+        }
+        if (a == "--no-musicbrainz") {
+            out.musicBrainz = false;
             ++i;
             continue;
         }

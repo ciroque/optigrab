@@ -24,6 +24,7 @@ std::unique_ptr<Command> makeSetExtractorCommand();
 std::unique_ptr<Command> makeSetEncoderCommand();
 std::unique_ptr<Command> makeSetCoverCommand();
 std::unique_ptr<Command> makeSetCoverArtCommand();
+std::unique_ptr<Command> makeSetMusicBrainzCommand();
 std::unique_ptr<Command> makeSetLogLevelCommand();
 std::unique_ptr<Command> makeSetLogPathCommand();
 std::unique_ptr<Command> makeSetCoverMissingCommand();
@@ -138,6 +139,7 @@ CommandHandler makeDefaultCommandHandler() {
     h.addCommand(makeSetEncoderCommand());
     h.addCommand(makeSetCoverCommand());
     h.addCommand(makeSetCoverArtCommand());
+    h.addCommand(makeSetMusicBrainzCommand());
     h.addCommand(makeSetLogLevelCommand());
     h.addCommand(makeSetLogPathCommand());
     h.addCommand(makeSetCoverMissingCommand());

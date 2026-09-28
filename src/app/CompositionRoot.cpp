@@ -61,7 +61,7 @@ std::shared_ptr<AudioEncoder> AppServices::makeEncoder(EncoderKind kind) {
 
 std::shared_ptr<RipService> AppServices::makeRipper(ExtractorKind extractor, EncoderKind encoder) {
     return std::make_shared<RipService>(toc, makeExtractor(extractor), makeEncoder(encoder),
-                                        metadata, cover, coverApplier);
+                                        metadata, cover, coverApplier, releases);
 }
 
 AppServices makeDefaultServices() {

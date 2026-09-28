@@ -176,6 +176,7 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/CoverArtPipelineTest.cpp
     tests/LoggerTest.cpp
     tests/MusicBrainzJsonTest.cpp
+    tests/ReleaseTest.cpp
     tests/CoverMissingPolicyTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)

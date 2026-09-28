@@ -91,6 +91,7 @@ public:
 
         std::string discId;
         std::optional<std::string> submitUrl;
+        bool loadedNow = false;
         if (tokens.size() == 3) {
             discId = tokens[2];
             if (!looksLikeDiscId(discId)) {
@@ -100,7 +101,8 @@ public:
         } else {
             ensureDriveSelected(ctx);
             if (!ctx.session.hasDisc()) {
-                ctx.ripper->loadDisc(ctx.session, &ctx.log);
+                ctx.ripper->loadDisc(ctx.session, &ctx.log);  // may look up MusicBrainz itself
+                loadedNow = true;
             }
             const auto& disc = ctx.session.disc();
             const auto id = computeMusicBrainzDiscId(disc);
@@ -111,8 +113,11 @@ public:
             submitUrl = musicBrainzSubmitUrl(disc);
         }
 
-        auto found = ctx.releases->lookup(discId, &ctx.log);
         const bool forLoadedDisc = tokens.size() == 2;
+        // Reuse what loading the disc just fetched; otherwise always ask MusicBrainz afresh.
+        const auto& cached = ctx.session.discLookup();
+        const bool reuse = loadedNow && cached && cached->discId == discId;
+        auto found = reuse ? *cached : ctx.releases->lookup(discId, &ctx.log);
 
         ctx.out << "Disc ID  : " << discId << "\n";
         std::optional<std::size_t> selected;
@@ -129,8 +134,12 @@ public:
         } else if (forLoadedDisc && found.releases.size() > 1) {
             ctx.out << "\n* = selected. Choose another with: select release <#>\n";
         }
-        if (forLoadedDisc) {
+        if (forLoadedDisc && !reuse) {
+            const bool any = !found.releases.empty();
             ctx.session.setDiscLookup(std::move(found));
+            if (any) {
+                ctx.ripper->loadDisc(ctx.session, &ctx.log);  // apply titles from release 0
+            }
         }
     }
     [[nodiscard]] std::string name() const override { return "lookup disc"; }

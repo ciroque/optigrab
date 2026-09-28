@@ -268,3 +268,79 @@ TEST_CASE("select release requires a lookup and a valid index", "[cli][lookup]")
     handler.execute(ctx, "select release x");
     REQUIRE(err.str().find("must be a number") != std::string::npos);
 }
+
+namespace {
+
+// Ripper wired to a MusicBrainz fake, as in the real composition root.
+std::unique_ptr<Context> makeMbContext(std::ostringstream& out, std::ostringstream& err,
+                                       std::shared_ptr<FakeReleaseLookup> releases) {
+    auto drives = std::make_shared<FakeDriveEnumerator>(
+        std::vector<DriveInfo>{DriveInfo{"/dev/sr0", "FAKE-DRIVE", 0}});
+    auto toc = std::make_shared<FakeTocReader>(makeTwoTrackDisc());
+    auto meta = std::make_shared<FakeMetadata>();
+    auto make = [toc, meta, releases](ExtractorKind, EncoderKind) {
+        return std::make_shared<RipService>(toc, std::make_shared<FakeExtractor>(),
+                                            std::make_shared<FakeEncoder>(), meta, nullptr,
+                                            nullptr, releases);
+    };
+    auto ctx = std::make_unique<Context>(
+        drives, make(ExtractorKind::Ffmpeg, EncoderKind::Ffmpeg), make, out, err);
+    ctx->releases = releases;
+    ctx->session.selectDrive(DriveInfo{"/dev/sr0", "FAKE-DRIVE", 0});
+    return ctx;
+}
+
+}  // namespace
+
+TEST_CASE("lookup disc on a fresh disc queries MusicBrainz once", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto releases = std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease()});
+    auto ctxp = makeMbContext(out, err, releases);
+    auto& ctx = *ctxp;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "lookup disc");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(releases->calls == 1);
+    REQUIRE(ctx.session.disc().tracks[0].title == "Where Eagles Dare");
+
+    handler.execute(ctx, "lookup disc");  // explicit refresh
+    REQUIRE(releases->calls == 2);
+}
+
+TEST_CASE("select release re-applies titles to the loaded disc", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto other = fakeRelease();
+    other.id = "11111111-2222-3333-4444-555555555555";
+    other.title = "Piece of Mind (Remaster)";
+    other.tracks[0].title = "Where Eagles Dare (2015 Remaster)";
+    auto releases =
+        std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease(), other});
+    auto ctxp = makeMbContext(out, err, releases);
+    auto& ctx = *ctxp;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "list track");
+    REQUIRE(out.str().find("Where Eagles Dare") != std::string::npos);
+
+    handler.execute(ctx, "select release 1");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(ctx.session.disc().album == "Piece of Mind (Remaster)");
+    REQUIRE(ctx.session.disc().tracks[0].title == "Where Eagles Dare (2015 Remaster)");
+    REQUIRE(releases->calls == 1);
+}
+
+TEST_CASE("set musicbrainz off stops automatic lookups", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto releases = std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease()});
+    auto ctxp = makeMbContext(out, err, releases);
+    auto& ctx = *ctxp;
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "set musicbrainz off");
+    handler.execute(ctx, "list track");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(releases->calls == 0);
+    REQUIRE_FALSE(ctx.session.musicBrainzEnabled());
+
+    handler.execute(ctx, "lookup disc");  // explicit lookup still allowed
+    REQUIRE(releases->calls == 1);
+    REQUIRE(ctx.session.disc().tracks[0].title == "Where Eagles Dare");
+}
