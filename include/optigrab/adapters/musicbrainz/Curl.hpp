@@ -6,12 +6,15 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace optigrab {
 
-// MusicBrainz asks every client to identify itself.
-inline constexpr const char* kMusicBrainzUserAgent =
-    "optigrab/0.2.0 (https://github.com/ciroque/optigrab)";
+// MusicBrainz asks every client to identify itself:
+// "optigrab/<version> (https://github.com/ciroque/optigrab)"; a leading "v" is dropped.
+[[nodiscard]] std::string musicBrainzUserAgent(std::string_view version);
+// Same, for this build's OPTIGRAB_VERSION_STRING.
+[[nodiscard]] std::string musicBrainzUserAgent();
 
 struct CurlResult {
     int exitCode{0};

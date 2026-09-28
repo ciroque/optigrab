@@ -8,6 +8,22 @@
 
 namespace optigrab {
 
+#ifndef OPTIGRAB_VERSION_STRING
+#define OPTIGRAB_VERSION_STRING "dev"
+#endif
+
+std::string musicBrainzUserAgent(std::string_view version) {
+    if (!version.empty() && (version.front() == 'v' || version.front() == 'V')) {
+        version.remove_prefix(1);
+    }
+    if (version.empty()) {
+        version = "dev";
+    }
+    return "optigrab/" + std::string(version) + " (https://github.com/ciroque/optigrab)";
+}
+
+std::string musicBrainzUserAgent() { return musicBrainzUserAgent(OPTIGRAB_VERSION_STRING); }
+
 std::string readWholeFile(const std::filesystem::path& p) {
     std::ifstream in(p, std::ios::binary);
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
@@ -30,7 +46,7 @@ CurlResult curlToFile(const std::string& curlBin, const std::string& url,
         "1",
         "--retry-all-errors",
         "-A",
-        kMusicBrainzUserAgent,
+        musicBrainzUserAgent(),
         "-o",
         outFile.string(),
         url,
@@ -60,7 +76,7 @@ CurlResult curlToFile(const std::string& curlBin, const std::string& url,
                     }
                     std::vector<std::string> args2 = {
                         curlBin,         "-sS", "-L", "--max-time", "45", "--retry", "3",
-                        "--retry-delay", "1",   "--retry-all-errors", "-A", kMusicBrainzUserAgent,
+                        "--retry-delay", "1",   "--retry-all-errors", "-A", musicBrainzUserAgent(),
                         "-o",            outFile.string(), cleaned,
                     };
                     r.exitCode = runProcess(args2, r.output, r.output);
