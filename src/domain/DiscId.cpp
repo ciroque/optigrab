@@ -192,7 +192,16 @@ std::string hashDiscId(int first, int last, const std::array<std::uint32_t, 100>
 
 }  // namespace
 
-std::optional<std::string> computeMusicBrainzDiscId(const DiscInfo& disc) {
+namespace {
+
+struct TocOffsets {
+    int first{0};
+    int last{0};
+    // offsets[0] = lead-out frame; offsets[track] = track start frame.
+    std::array<std::uint32_t, 100> offsets{};
+};
+
+std::optional<TocOffsets> audioTocOffsets(const DiscInfo& disc) {
     std::vector<const TrackInfo*> audio;
     for (const auto& t : disc.tracks) {
         if (t.audio) {
@@ -203,27 +212,64 @@ std::optional<std::string> computeMusicBrainzDiscId(const DiscInfo& disc) {
         return std::nullopt;
     }
 
-    const int first = audio.front()->number;
-    const int last = audio.back()->number;
-    if (first < 1 || last < first || last > 99) {
+    TocOffsets toc;
+    toc.first = audio.front()->number;
+    toc.last = audio.back()->number;
+    if (toc.first < 1 || toc.last < toc.first || toc.last > 99) {
         return std::nullopt;
     }
 
     // Frame offset = LBA + 150 (2-second pregap).
-    // offsets[0] = lead-out frame; offsets[track] = track start frame.
-    std::array<std::uint32_t, 100> offsets{};
     for (const auto* t : audio) {
         if (t->number < 1 || t->number > 99) {
             return std::nullopt;
         }
-        offsets[static_cast<std::size_t>(t->number)] =
+        toc.offsets[static_cast<std::size_t>(t->number)] =
             static_cast<std::uint32_t>(t->startLba + 150);
     }
     const auto* lastTrack = audio.back();
     // Lead-out = end of last audio track in frames.
-    offsets[0] = static_cast<std::uint32_t>(lastTrack->startLba + lastTrack->sectors + 150);
+    toc.offsets[0] = static_cast<std::uint32_t>(lastTrack->startLba + lastTrack->sectors + 150);
+    return toc;
+}
 
-    return hashDiscId(first, last, offsets);
+}  // namespace
+
+std::optional<std::string> computeMusicBrainzDiscId(const DiscInfo& disc) {
+    const auto toc = audioTocOffsets(disc);
+    if (!toc) {
+        return std::nullopt;
+    }
+    return hashDiscId(toc->first, toc->last, toc->offsets);
+}
+
+std::optional<std::string> musicBrainzToc(const DiscInfo& disc) {
+    const auto toc = audioTocOffsets(disc);
+    if (!toc) {
+        return std::nullopt;
+    }
+    std::string out = std::to_string(toc->first) + " " + std::to_string(toc->last) + " " +
+                      std::to_string(toc->offsets[0]);
+    for (int t = toc->first; t <= toc->last; ++t) {
+        out += " " + std::to_string(toc->offsets[static_cast<std::size_t>(t)]);
+    }
+    return out;
+}
+
+std::optional<std::string> musicBrainzSubmitUrl(const DiscInfo& disc) {
+    const auto id = computeMusicBrainzDiscId(disc);
+    const auto toc = audioTocOffsets(disc);
+    auto tocStr = musicBrainzToc(disc);
+    if (!id || !toc || !tocStr) {
+        return std::nullopt;
+    }
+    for (char& c : *tocStr) {
+        if (c == ' ') {
+            c = '+';
+        }
+    }
+    return "https://musicbrainz.org/cdtoc/attach?id=" + *id +
+           "&tracks=" + std::to_string(toc->last - toc->first + 1) + "&toc=" + *tocStr;
 }
 
 // Test/helper: compute from raw first/last/leadout/track frame offsets (libdiscid layout).
