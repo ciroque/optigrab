@@ -29,6 +29,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+# JSON parsing for MusicBrainz web service responses (header-only).
+FetchContent_Declare(
+  nlohmann_json
+  URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 set(OPTIGRAB_COMMON_SOURCES
   src/domain/Session.cpp
   src/domain/TrackRange.cpp
@@ -139,6 +147,8 @@ if(NOT WIN32)
     ${LIBCDIO_PARANOIA_CFLAGS_OTHER}
   )
 endif()
+
+target_link_libraries(optigrab_lib PRIVATE nlohmann_json::nlohmann_json)
 
 add_executable(optigrab src/main.cpp)
 target_link_libraries(optigrab PRIVATE optigrab::lib)
