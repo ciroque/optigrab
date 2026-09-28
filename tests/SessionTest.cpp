@@ -28,3 +28,53 @@ TEST_CASE("Session selectDrive clears disc", "[session]") {
     s.selectDrive(DriveInfo{.path = "/dev/sr1", .model = "Y", .index = 1});
     REQUIRE_FALSE(s.hasDisc());
 }
+
+namespace {
+
+optigrab::DiscLookup lookupWith(int count) {
+    optigrab::DiscLookup l;
+    l.discId = "VDjKDudtLNGvkArIWTSGDS3NlR8-";
+    for (int i = 0; i < count; ++i) {
+        optigrab::Release r;
+        r.id = "release-" + std::to_string(i);
+        l.releases.push_back(r);
+    }
+    return l;
+}
+
+}  // namespace
+
+TEST_CASE("Session disc lookup selects first release", "[session]") {
+    Session s;
+    REQUIRE(s.selectedRelease() == nullptr);
+    s.setDiscLookup(lookupWith(3));
+    REQUIRE(s.discLookup().has_value());
+    REQUIRE(s.selectedReleaseIndex() == 0u);
+    REQUIRE(s.selectedRelease()->id == "release-0");
+    s.selectRelease(2);
+    REQUIRE(s.selectedRelease()->id == "release-2");
+}
+
+TEST_CASE("Session disc lookup with no releases selects nothing", "[session]") {
+    Session s;
+    s.setDiscLookup(lookupWith(0));
+    REQUIRE(s.discLookup().has_value());
+    REQUIRE_FALSE(s.selectedReleaseIndex().has_value());
+    REQUIRE(s.selectedRelease() == nullptr);
+}
+
+TEST_CASE("Session selectRelease validates state and range", "[session]") {
+    Session s;
+    REQUIRE_THROWS_AS(s.selectRelease(0), SessionError);
+    s.setDiscLookup(lookupWith(2));
+    REQUIRE_THROWS_AS(s.selectRelease(2), SessionError);
+    REQUIRE(s.selectedReleaseIndex() == 0u);
+}
+
+TEST_CASE("Session selectDrive clears disc lookup", "[session]") {
+    Session s;
+    s.setDiscLookup(lookupWith(1));
+    s.selectDrive(DriveInfo{"/dev/sr0", "X", 0});
+    REQUIRE_FALSE(s.discLookup().has_value());
+    REQUIRE(s.selectedRelease() == nullptr);
+}

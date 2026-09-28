@@ -119,6 +119,14 @@ public:
             add("disc", "-", "-", "list track / detail disc");
         }
 
+        if (const auto* r = s.selectedRelease()) {
+            add("release", std::to_string(*s.selectedReleaseIndex()) + ": " + r->artist + " - " +
+                                r->title,
+                "-", "lookup disc / select release");
+        } else {
+            add("release", "-", "-", "lookup disc / select release");
+        }
+
         add("out", s.outputDirectory(), "-", "set out / --out");
         add("folderlayout", toString(s.folderLayout()), "nested|joined|album",
             "set folderlayout / --folder-layout");

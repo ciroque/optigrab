@@ -217,3 +217,54 @@ TEST_CASE("lookup disc reports service failures", "[cli][lookup]") {
     REQUIRE(ctx.exitCode != 0);
     REQUIRE(err.str().find("HTTP 503") != std::string::npos);
 }
+
+TEST_CASE("lookup disc keeps result in session and select release switches", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    auto second = fakeRelease();
+    second.id = "11111111-2222-3333-4444-555555555555";
+    second.date = "1998";
+    second.country = "XE";
+    ctx.releases =
+        std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease(), second});
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "select drive 0");
+    handler.execute(ctx, "lookup disc");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(out.str().find("select release <#>") != std::string::npos);
+    REQUIRE(ctx.session.discLookup().has_value());
+    REQUIRE(ctx.session.selectedReleaseIndex() == 0u);
+
+    handler.execute(ctx, "select release 1");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE(ctx.session.selectedRelease()->id == second.id);
+    REQUIRE(out.str().find("Release 1 is now the selected release") != std::string::npos);
+}
+
+TEST_CASE("lookup disc with explicit disc ID does not touch session", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    ctx.releases = std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease()});
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "lookup disc VDjKDudtLNGvkArIWTSGDS3NlR8-");
+    REQUIRE(ctx.exitCode == 0);
+    REQUIRE_FALSE(ctx.session.discLookup().has_value());
+}
+
+TEST_CASE("select release requires a lookup and a valid index", "[cli][lookup]") {
+    std::ostringstream out, err;
+    auto ctx = makeTestContext(out, err);
+    ctx.releases = std::make_shared<FakeReleaseLookup>(std::vector<Release>{fakeRelease()});
+    auto handler = makeDefaultCommandHandler();
+    handler.execute(ctx, "select release 0");
+    REQUIRE(err.str().find("lookup disc") != std::string::npos);
+
+    ctx.exitCode = 0;
+    handler.execute(ctx, "select drive 0");
+    handler.execute(ctx, "lookup disc");
+    handler.execute(ctx, "select release 5");
+    REQUIRE(err.str().find("out of range") != std::string::npos);
+    ctx.exitCode = 0;
+    handler.execute(ctx, "select release x");
+    REQUIRE(err.str().find("must be a number") != std::string::npos);
+}

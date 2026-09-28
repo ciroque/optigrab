@@ -85,8 +85,8 @@ MusicBrainzCoverArtProvider::MusicBrainzCoverArtProvider(std::shared_ptr<Release
                                                          std::string curlBinary)
     : releases_(std::move(releases)), curl_(std::move(curlBinary)) {}
 
-std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc, const Session&,
-                                                           Logger* log) {
+std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
+                                                           const Session& session, Logger* log) {
     int audioTracks = 0;
     for (const auto& t : disc.tracks) {
         if (t.audio) {
@@ -109,17 +109,26 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
         log->info("[mb] disc ID: " + *discId);
     }
 
-    DiscLookup found;
-    try {
-        found = releases_->lookup(*discId, log);
-    } catch (const LookupError& ex) {
+    // Reuse the session's lookup for this disc rather than querying MusicBrainz again.
+    std::vector<Release> candidates;
+    const auto& cached = session.discLookup();
+    if (cached && cached->discId == *discId) {
         if (log) {
-            log->warn(std::string("[mb] ") + ex.what());
+            log->debug("[mb] using " + std::to_string(cached->releases.size()) +
+                       " release(s) from session lookup");
         }
-        return std::nullopt;
+        candidates = cached->releases;
+    } else {
+        try {
+            candidates = releases_->lookup(*discId, log).releases;
+        } catch (const LookupError& ex) {
+            if (log) {
+                log->warn(std::string("[mb] ") + ex.what());
+            }
+            return std::nullopt;
+        }
     }
 
-    auto candidates = found.releases;
     if (candidates.empty()) {
         if (log) {
             log->warn("[mb] no releases linked to this disc ID");
@@ -131,6 +140,12 @@ std::optional<CoverArt> MusicBrainzCoverArtProvider::fetch(const DiscInfo& disc,
                      [](const Release& a, const Release& b) {
                          return a.hasFrontCover > b.hasFrontCover;
                      });
+    // The user's chosen release (select release) goes before everything else.
+    if (const auto* chosen = session.selectedRelease();
+        chosen && cached && cached->discId == *discId) {
+        std::stable_partition(candidates.begin(), candidates.end(),
+                              [&](const Release& r) { return r.id == chosen->id; });
+    }
 
     for (const auto& c : candidates) {
         if (log) {

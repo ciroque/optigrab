@@ -8,6 +8,7 @@
 #include <cctype>
 #include <iomanip>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace optigrab {
@@ -30,7 +31,8 @@ std::string mediumLabel(const Release& r) {
     return std::to_string(r.mediumPosition) + "/" + std::to_string(r.mediumCount);
 }
 
-void printReleases(Context& ctx, const DiscLookup& found) {
+// selected: marked with "*" and its track list shown (release 0's if none).
+void printReleases(Context& ctx, const DiscLookup& found, std::optional<std::size_t> selected) {
     ctx.out << "Releases : " << found.releases.size() << "\n";
     if (found.releases.empty()) {
         return;
@@ -43,7 +45,7 @@ void printReleases(Context& ctx, const DiscLookup& found) {
     wName = std::min<std::size_t>(wName, 48);
 
     ctx.out << "\n"
-            << std::left << "  " << std::setw(4) << "#" << std::setw(static_cast<int>(wName) + 2)
+            << std::left << "    " << std::setw(4) << "#" << std::setw(static_cast<int>(wName) + 2)
             << "Release" << std::setw(12) << "Date" << std::setw(9) << "Country"
             << std::setw(7) << "Disc" << "Cover\n";
     for (std::size_t i = 0; i < found.releases.size(); ++i) {
@@ -52,21 +54,22 @@ void printReleases(Context& ctx, const DiscLookup& found) {
         if (name.size() > wName) {
             name = name.substr(0, wName - 3) + "...";
         }
-        ctx.out << "  " << std::setw(4) << i << std::setw(static_cast<int>(wName) + 2) << name
-                << std::setw(12) << orDash(r.date) << std::setw(9) << orDash(r.country)
+        ctx.out << (selected == i ? "  * " : "    ") << std::setw(4) << i
+                << std::setw(static_cast<int>(wName) + 2) << name << std::setw(12) << orDash(r.date) << std::setw(9) << orDash(r.country)
                 << std::setw(7) << mediumLabel(r) << (r.hasFrontCover ? "yes" : "no") << "\n";
     }
 
-    const auto& first = found.releases.front();
-    ctx.out << "\nTracks (release 0, MBID " << first.id << "):\n";
-    if (first.tracks.empty()) {
+    const auto shownIndex = selected.value_or(0);
+    const auto& shown = found.releases[shownIndex];
+    ctx.out << "\nTracks (release " << shownIndex << ", MBID " << shown.id << "):\n";
+    if (shown.tracks.empty()) {
         ctx.out << "  (no track list for this disc)\n";
         return;
     }
-    for (const auto& t : first.tracks) {
+    for (const auto& t : shown.tracks) {
         ctx.out << "  " << std::right << std::setw(2) << t.position << std::left << "  "
                 << t.title;
-        if (!t.artist.empty() && t.artist != first.artist) {
+        if (!t.artist.empty() && t.artist != shown.artist) {
             ctx.out << " (" << t.artist << ")";
         }
         ctx.out << "\n";
@@ -74,6 +77,8 @@ void printReleases(Context& ctx, const DiscLookup& found) {
 }
 
 // lookup disc [discid] — query MusicBrainz without ripping.
+// For the loaded disc the result is kept in the session (release 0 selected) so a later
+// rip reuses it; an explicit disc ID is display-only.
 class LookupDiscCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>& tokens) override {
@@ -106,16 +111,26 @@ public:
             submitUrl = musicBrainzSubmitUrl(disc);
         }
 
-        const auto found = ctx.releases->lookup(discId, &ctx.log);
+        auto found = ctx.releases->lookup(discId, &ctx.log);
+        const bool forLoadedDisc = tokens.size() == 2;
 
         ctx.out << "Disc ID  : " << discId << "\n";
-        printReleases(ctx, found);
+        std::optional<std::size_t> selected;
+        if (forLoadedDisc && !found.releases.empty()) {
+            selected = 0;  // matches Session::setDiscLookup
+        }
+        printReleases(ctx, found, selected);
         if (found.releases.empty()) {
             ctx.out << "Not in MusicBrainz yet.";
             if (submitUrl) {
                 ctx.out << " Add it at:\n  " << *submitUrl;
             }
             ctx.out << "\n";
+        } else if (forLoadedDisc && found.releases.size() > 1) {
+            ctx.out << "\n* = selected. Choose another with: select release <#>\n";
+        }
+        if (forLoadedDisc) {
+            ctx.session.setDiscLookup(std::move(found));
         }
     }
     [[nodiscard]] std::string name() const override { return "lookup disc"; }

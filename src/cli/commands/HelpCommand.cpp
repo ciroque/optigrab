@@ -25,6 +25,7 @@ public:
   detail disc             Show disc summary
   detail context          Dump full session/context (no drive required)
   lookup disc [discid]    Query MusicBrainz for the disc (or a given disc ID)
+  select release <n>      Choose among releases found by lookup disc
   rip track <spec>        Rip tracks (all | N | N-M | N,M,...)
   set out <dir>           Output directory
   set quality <preset>    V0 | V2 | 192 | 256 | 320

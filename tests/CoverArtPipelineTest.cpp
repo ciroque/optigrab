@@ -1,4 +1,5 @@
 #include "optigrab/adapters/cover/MusicBrainzCoverArtProvider.hpp"
+#include "optigrab/domain/DiscId.hpp"
 #include "optigrab/domain/Session.hpp"
 #include "optigrab/ports/CoverArtApplier.hpp"
 #include "optigrab/ports/CoverArtProvider.hpp"
@@ -150,5 +151,20 @@ TEST_CASE("musicbrainz cover provider returns nothing for unknown discs", "[cove
     MusicBrainzCoverArtProvider provider(releases);
     Session session;
     REQUIRE_FALSE(provider.fetch(makeTwoTrackDisc(), session).has_value());
+    REQUIRE(releases->calls == 1);
+}
+
+TEST_CASE("musicbrainz cover provider reuses session lookup for the same disc", "[cover]") {
+    auto releases = std::make_shared<FakeReleaseLookup>();
+    MusicBrainzCoverArtProvider provider(releases);
+    const auto disc = makeTwoTrackDisc();
+    Session session;
+    session.setDiscLookup(DiscLookup{*computeMusicBrainzDiscId(disc), {}});
+    REQUIRE_FALSE(provider.fetch(disc, session).has_value());
+    REQUIRE(releases->calls == 0);
+
+    // A lookup for a different disc is ignored.
+    session.setDiscLookup(DiscLookup{"AAAAAAAAAAAAAAAAAAAAAAAAAAA-", {}});
+    REQUIRE_FALSE(provider.fetch(disc, session).has_value());
     REQUIRE(releases->calls == 1);
 }

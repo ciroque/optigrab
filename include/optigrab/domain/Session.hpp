@@ -1,8 +1,10 @@
 #pragma once
 
+#include "optigrab/domain/Release.hpp"
 #include "optigrab/domain/Types.hpp"
 #include "optigrab/platform/Platform.hpp"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 
@@ -19,6 +21,17 @@ public:
     void clearDisc();
     [[nodiscard]] bool hasDisc() const;
     [[nodiscard]] const DiscInfo& disc() const;
+
+    // Last MusicBrainz lookup (kept across disc reloads; cleared with the drive).
+    // Setting a lookup selects release 0 when there is at least one.
+    void setDiscLookup(DiscLookup lookup);
+    void clearDiscLookup();
+    [[nodiscard]] const std::optional<DiscLookup>& discLookup() const;
+    // Throws SessionError if there is no lookup or index is out of range.
+    void selectRelease(std::size_t index);
+    [[nodiscard]] std::optional<std::size_t> selectedReleaseIndex() const;
+    // Selected release, or nullptr.
+    [[nodiscard]] const Release* selectedRelease() const;
 
     void setOutputDirectory(std::string path);
     [[nodiscard]] const std::string& outputDirectory() const;
@@ -64,6 +77,8 @@ public:
 private:
     std::optional<DriveInfo> selectedDrive_;
     std::optional<DiscInfo> disc_;
+    std::optional<DiscLookup> discLookup_;
+    std::optional<std::size_t> selectedRelease_;
     std::string outputDirectory_{"."};
     QualityPreset quality_{QualityPreset::V0};
     std::optional<std::string> artist_;
