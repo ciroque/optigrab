@@ -7,6 +7,7 @@
 #include "optigrab/adapters/ffmpeg/FfmpegEncoder.hpp"
 #include "optigrab/adapters/ffmpeg/FfmpegExtractor.hpp"
 #include "optigrab/adapters/manual/ManualMetadataProvider.hpp"
+#include "optigrab/adapters/musicbrainz/MusicBrainzClient.hpp"
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/platform/Platform.hpp"
 
@@ -60,7 +61,7 @@ std::shared_ptr<AudioEncoder> AppServices::makeEncoder(EncoderKind kind) {
 
 std::shared_ptr<RipService> AppServices::makeRipper(ExtractorKind extractor, EncoderKind encoder) {
     return std::make_shared<RipService>(toc, makeExtractor(extractor), makeEncoder(encoder),
-                                        metadata, cover, coverApplier);
+                                        metadata, cover, coverApplier, releases);
 }
 
 AppServices makeDefaultServices() {
@@ -79,10 +80,11 @@ AppServices makeDefaultServices() {
     s.toc = std::make_shared<LibcdioTocReader>();
 #endif
     s.metadata = std::make_shared<ManualMetadataProvider>();
+    s.releases = std::make_shared<MusicBrainzClient>();
 
     std::vector<std::shared_ptr<CoverArtProvider>> coverProviders;
     coverProviders.push_back(std::make_shared<LocalCoverArtProvider>());
-    coverProviders.push_back(std::make_shared<MusicBrainzCoverArtProvider>());
+    coverProviders.push_back(std::make_shared<MusicBrainzCoverArtProvider>(s.releases));
     s.cover = std::make_shared<CompositeCoverArtProvider>(std::move(coverProviders));
     s.coverApplier = std::make_shared<FfmpegCoverArtApplier>();
     return s;
@@ -97,6 +99,7 @@ std::unique_ptr<Context> makeContext(AppServices& services, std::ostream& out, s
     auto ctx = std::make_unique<Context>(services.drives, std::move(ripper), std::move(rebuild), out,
                                          err, services.ejector);
     ctx->session.setExtractor(extractor);
+    ctx->releases = services.releases;
     return ctx;
 }
 

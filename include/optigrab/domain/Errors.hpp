@@ -40,4 +40,9 @@ public:
     using OptigrabError::OptigrabError;
 };
 
+class LookupError : public OptigrabError {
+public:
+    using OptigrabError::OptigrabError;
+};
+
 }  // namespace optigrab

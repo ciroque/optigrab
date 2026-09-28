@@ -8,6 +8,7 @@
 #include "optigrab/ports/CoverArtApplier.hpp"
 #include "optigrab/ports/CoverArtProvider.hpp"
 #include "optigrab/ports/MetadataProvider.hpp"
+#include "optigrab/ports/ReleaseLookup.hpp"
 #include "optigrab/ports/TocReader.hpp"
 
 #include <functional>
@@ -33,8 +34,12 @@ public:
                std::shared_ptr<AudioEncoder> encoder,
                std::shared_ptr<MetadataProvider> metadata,
                std::shared_ptr<CoverArtProvider> coverProvider = nullptr,
-               std::shared_ptr<CoverArtApplier> coverApplier = nullptr);
+               std::shared_ptr<CoverArtApplier> coverApplier = nullptr,
+               std::shared_ptr<ReleaseLookup> releases = nullptr);
 
+    // Read the TOC, then fill titles/album/artist/year: metadata provider placeholders,
+    // the selected MusicBrainz release (looked up once per disc when enabled), and finally
+    // session overrides.
     void loadDisc(Session& session, Logger* log = nullptr);
 
     // Serial: cover fetch → (covermissing policy) → extract/encode → sidecar + embed.
@@ -45,6 +50,8 @@ public:
                                      CoverMissingPromptFn onCoverMissingAsk = {});
 
 private:
+    // Keep session lookup in sync with this disc (lookup if needed) and apply its release.
+    void applyMusicBrainz(Session& session, DiscInfo& disc, Logger* log);
     Tags makeTags(const Session& session, const TrackInfo& track, int trackTotal) const;
 
     std::shared_ptr<TocReader> toc_;
@@ -53,6 +60,7 @@ private:
     std::shared_ptr<MetadataProvider> metadata_;
     std::shared_ptr<CoverArtProvider> coverProvider_;
     std::shared_ptr<CoverArtApplier> coverApplier_;
+    std::shared_ptr<ReleaseLookup> releases_;
 };
 
 }  // namespace optigrab

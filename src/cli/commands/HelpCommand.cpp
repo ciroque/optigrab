@@ -24,6 +24,8 @@ public:
   detail drive            Show selected drive / session settings
   detail disc             Show disc summary
   detail context          Dump full session/context (no drive required)
+  lookup disc [discid]    Query MusicBrainz for the disc (or a given disc ID)
+  select release <n>      Choose among releases found by lookup disc
   rip track <spec>        Rip tracks (all | N | N-M | N,M,...)
   set out <dir>           Output directory
   set quality <preset>    V0 | V2 | 192 | 256 | 320
@@ -31,6 +33,7 @@ public:
   set album <name>        Album name (tags + folder naming)
   set cover <path>|none   Local cover image (preferred over network)
   set coverart on|off     Enable/disable cover download+embed
+  set musicbrainz on|off  Auto-fill titles/album/artist/year from MusicBrainz
   set covermissing <p>    ask|continue|abort if no cover (default: ask)
   set folderlayout <l>    nested|joined|album (default: nested)
                             nested  out/Artist/Album/track.mp3

@@ -29,16 +29,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+# JSON parsing for MusicBrainz web service responses (header-only).
+FetchContent_Declare(
+  nlohmann_json
+  URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 set(OPTIGRAB_COMMON_SOURCES
   src/domain/Session.cpp
   src/domain/TrackRange.cpp
   src/domain/DiscId.cpp
+  src/domain/Release.cpp
   src/log/LogLevel.cpp
   src/log/Logger.cpp
   src/services/Filename.cpp
   src/services/RipService.cpp
   src/util/Process.cpp
   src/util/DeviceError.cpp
+  src/adapters/musicbrainz/Curl.cpp
+  src/adapters/musicbrainz/MusicBrainzClient.cpp
+  src/adapters/musicbrainz/MusicBrainzJson.cpp
   src/adapters/cover/LocalCoverArtProvider.cpp
   src/adapters/cover/MusicBrainzCoverArtProvider.cpp
   src/adapters/cover/CompositeCoverArtProvider.cpp
@@ -57,6 +69,7 @@ set(OPTIGRAB_COMMON_SOURCES
   src/cli/commands/DetailCommand.cpp
   src/cli/commands/SetCommand.cpp
   src/cli/commands/RipCommand.cpp
+  src/cli/commands/LookupCommand.cpp
   src/cli/commands/HelpCommand.cpp
   src/cli/commands/ExitCommand.cpp
   src/cli/commands/ClsCommand.cpp
@@ -140,6 +153,8 @@ if(NOT WIN32)
   )
 endif()
 
+target_link_libraries(optigrab_lib PRIVATE nlohmann_json::nlohmann_json)
+
 add_executable(optigrab src/main.cpp)
 target_link_libraries(optigrab PRIVATE optigrab::lib)
 
@@ -160,7 +175,9 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/DiscIdTest.cpp
     tests/CoverArtPipelineTest.cpp
     tests/LoggerTest.cpp
-    tests/MbReleaseParseTest.cpp
+    tests/MusicBrainzJsonTest.cpp
+    tests/ReleaseTest.cpp
+    tests/CurlTest.cpp
     tests/CoverMissingPolicyTest.cpp
   )
   target_link_libraries(optigrab_tests PRIVATE optigrab::lib Catch2::Catch2WithMain)

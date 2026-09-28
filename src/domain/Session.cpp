@@ -7,11 +7,13 @@ namespace optigrab {
 void Session::selectDrive(const DriveInfo& drive) {
     selectedDrive_ = drive;
     disc_.reset();
+    clearDiscLookup();
 }
 
 void Session::clearDriveSelection() {
     selectedDrive_.reset();
     disc_.reset();
+    clearDiscLookup();
 }
 
 bool Session::hasSelectedDrive() const { return selectedDrive_.has_value(); }
@@ -35,6 +37,46 @@ const DiscInfo& Session::disc() const {
     }
     return *disc_;
 }
+
+void Session::setDiscLookup(DiscLookup lookup) {
+    selectedRelease_.reset();
+    if (!lookup.releases.empty()) {
+        selectedRelease_ = 0;
+    }
+    discLookup_ = std::move(lookup);
+}
+
+void Session::clearDiscLookup() {
+    discLookup_.reset();
+    selectedRelease_.reset();
+}
+
+const std::optional<DiscLookup>& Session::discLookup() const { return discLookup_; }
+
+void Session::selectRelease(std::size_t index) {
+    if (!discLookup_) {
+        throw SessionError("No MusicBrainz lookup yet. Use: lookup disc");
+    }
+    const auto count = discLookup_->releases.size();
+    if (index >= count) {
+        throw SessionError("Release " + std::to_string(index) + " out of range (" +
+                           std::to_string(count) + " release(s) found)");
+    }
+    selectedRelease_ = index;
+}
+
+std::optional<std::size_t> Session::selectedReleaseIndex() const { return selectedRelease_; }
+
+const Release* Session::selectedRelease() const {
+    if (!discLookup_ || !selectedRelease_) {
+        return nullptr;
+    }
+    return &discLookup_->releases[*selectedRelease_];
+}
+
+void Session::setMusicBrainzEnabled(bool enabled) { musicBrainzEnabled_ = enabled; }
+
+bool Session::musicBrainzEnabled() const { return musicBrainzEnabled_; }
 
 void Session::setOutputDirectory(std::string path) { outputDirectory_ = std::move(path); }
 

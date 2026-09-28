@@ -1,6 +1,7 @@
 #include "optigrab/cli/Command.hpp"
 #include "optigrab/cli/DriveSelection.hpp"
 
+#include "optigrab/domain/DiscId.hpp"
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/platform/Platform.hpp"
 
@@ -48,6 +49,15 @@ public:
         }
         if (disc.albumArtist) {
             ctx.out << "  Artist : " << *disc.albumArtist << "\n";
+        }
+        if (disc.year) {
+            ctx.out << "  Year   : " << *disc.year << "\n";
+        }
+        if (const auto id = computeMusicBrainzDiscId(disc)) {
+            ctx.out << "  Disc ID: " << *id << "\n";
+        }
+        if (const auto* r = ctx.session.selectedRelease()) {
+            ctx.out << "  Release: " << r->id << "\n";
         }
         ctx.out << "  Tracks : " << disc.tracks.size() << "\n";
         int audio = 0;
@@ -107,6 +117,8 @@ public:
             add("disc.device", disc.devicePath, "-", "list track");
             add("disc.album", opt(disc.album), "-", "disc / set album");
             add("disc.artist", opt(disc.albumArtist), "-", "disc / set artist");
+            add("disc.year", disc.year ? std::to_string(*disc.year) : "-", "-", "musicbrainz");
+            add("disc.id", computeMusicBrainzDiscId(disc).value_or("-"), "-", "list track");
             add("disc.tracks", std::to_string(disc.tracks.size()), "-", "list track");
             int audio = 0;
             for (const auto& t : disc.tracks) {
@@ -119,6 +131,14 @@ public:
             add("disc", "-", "-", "list track / detail disc");
         }
 
+        if (const auto* r = s.selectedRelease()) {
+            add("release", std::to_string(*s.selectedReleaseIndex()) + ": " + r->artist + " - " +
+                                r->title,
+                "-", "lookup disc / select release");
+        } else {
+            add("release", "-", "-", "lookup disc / select release");
+        }
+
         add("out", s.outputDirectory(), "-", "set out / --out");
         add("folderlayout", toString(s.folderLayout()), "nested|joined|album",
             "set folderlayout / --folder-layout");
@@ -128,6 +148,8 @@ public:
         add("extractor", toString(s.extractor()), extractorChoices,
             "set extractor / --extractor");
         add("encoder", toString(s.encoder()), "ffmpeg", "set encoder / --encoder");
+        add("musicbrainz", s.musicBrainzEnabled() ? "on" : "off", "on|off",
+            "set musicbrainz / --no-musicbrainz");
         add("coverart", s.fetchCoverArt() ? "on" : "off", "on|off",
             "set coverart / --no-cover");
         add("cover", opt(s.coverPath()), "path|none", "set cover / --cover");

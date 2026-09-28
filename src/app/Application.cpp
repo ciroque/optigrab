@@ -27,6 +27,9 @@ void Application::applyLaunchArgs(const LaunchArgs& args) {
     if (args.coverPath) {
         ctx_->session.setCoverPath(*args.coverPath);
     }
+    if (args.musicBrainz) {
+        ctx_->session.setMusicBrainzEnabled(*args.musicBrainz);
+    }
     if (args.fetchCoverArt) {
         ctx_->session.setFetchCoverArt(*args.fetchCoverArt);
     }

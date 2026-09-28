@@ -9,6 +9,7 @@
 #include "optigrab/ports/DriveEjector.hpp"
 #include "optigrab/ports/DriveEnumerator.hpp"
 #include "optigrab/ports/MetadataProvider.hpp"
+#include "optigrab/ports/ReleaseLookup.hpp"
 #include "optigrab/ports/TocReader.hpp"
 #include "optigrab/services/RipService.hpp"
 
@@ -21,6 +22,7 @@ struct AppServices {
     std::shared_ptr<DriveEjector> ejector;
     std::shared_ptr<TocReader> toc;
     std::shared_ptr<MetadataProvider> metadata;
+    std::shared_ptr<ReleaseLookup> releases;
     std::shared_ptr<CoverArtProvider> cover;
     std::shared_ptr<CoverArtApplier> coverApplier;
     std::shared_ptr<AudioExtractor> makeExtractor(ExtractorKind kind);

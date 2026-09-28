@@ -19,6 +19,8 @@ Named in homage to the **Opti-Grab** from *The Jerk*: a ridiculous little invent
   - **Encode:** `ffmpeg` + libmp3lame (tags included)
   - **TOC:** libcdio (Linux/macOS), Windows SPTI (Windows)
 - Session focus (selected drive); **auto-selects when only one drive is present**
+- **MusicBrainz metadata:** Disc ID → track titles, artist credits, album, album artist, year  
+  (`lookup disc` to preview, `select release` when several pressings match; manual overrides still win)
 - Manual artist/album overrides
 - Filenames under `--folder-layout` (default **nested**):
   - `nested` → `<out>/<Artist>/<Album>/<NN> Title.mp3`
@@ -78,6 +80,8 @@ cmake -S . -B build -DOPTIGRAB_VERSION=0.2.0
 $ optigrab
 OPTIGRAB> list drive
 OPTIGRAB> select drive 0
+OPTIGRAB> lookup disc
+OPTIGRAB> select release 1
 OPTIGRAB> set artist "The Band"
 OPTIGRAB> set album "Music From Big Pink"
 OPTIGRAB> set out ~/Music
@@ -95,6 +99,8 @@ Same VERB NOUN grammar after optional flags — no REPL:
 ```bash
 optigrab list drive
 optigrab --drive 0 list track
+optigrab --drive 0 lookup disc
+optigrab lookup disc I5l9cCSFccLKFEKS.7wqSZAorPU-   # any disc ID, no drive needed
 optigrab --drive 0 \
   --out ~/Music \
   --artist "The Band" \
@@ -110,6 +116,7 @@ optigrab --drive 0 \
 | `--artist` / `--album` | Tag + folder overrides |
 | `--cover <image>` | Local cover image (used instead of network when set) |
 | `--no-cover` | Skip cover download/embed |
+| `--no-musicbrainz` | Don't auto-fill titles/album/artist/year from MusicBrainz |
 | `--cover-missing <p>` | `ask` (default) \| `continue` \| `abort` when no cover |
 | `--log-level <level>` | `trace` `debug` `info` `warn` `error` `fatal` `off` |
 | `--quality` | `V0` `V2` `192` `256` `320` |
@@ -131,8 +138,11 @@ Exit codes: `0` ok, `1` usage/command error, `2` rip completed with track failur
 | `list track` | List tracks (loads TOC) |
 | `detail drive` / `detail disc` | Session / disc info |
 | `detail context` | Full session dump (drive, disc, out, cover, log, backends) |
+| `lookup disc [discid]` | Query MusicBrainz: disc ID, matching releases, track list (submit link if unknown) |
+| `select release <n>` | Choose among releases from `lookup disc`; re-applies titles |
 | `rip track <all\|N\|N-M\|…>` | Extract + encode |
 | `set out\|quality\|artist\|album` | Session options |
+| `set musicbrainz on\|off` | Automatic MusicBrainz metadata (default `on`) |
 | `set folderlayout nested\|joined\|album` | Album folder layout under `out` |
 | `set logpath <dir>\|none` | Log dir; files named `<Artist> - <Album>.log` (tee stderr) |
 | `set extractor …` | Swap extractor (platform-dependent) |
@@ -147,10 +157,10 @@ CLI (VERB NOUN) → Session + Commands
        ↓
    RipService
        ↓
- DriveEnumerator | TocReader | AudioExtractor | AudioEncoder | MetadataProvider
-       ↓                ↓              ↓              ↓
- Linux / macOS / Win  libcdio / SPTI  cdparanoia    ffmpeg
-                                      libcdio / ffmpeg
+ DriveEnumerator | TocReader | AudioExtractor | AudioEncoder | MetadataProvider | ReleaseLookup
+       ↓                ↓              ↓              ↓                                ↓
+ Linux / macOS / Win  libcdio / SPTI  cdparanoia    ffmpeg                  MusicBrainz ws/2
+                                      libcdio / ffmpeg                       (curl + nlohmann/json)
 ```
 
 Core code depends on **ports** only. Adapters are thin wrappers.
@@ -186,19 +196,26 @@ Maintainer signing setup: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Metadata naming
 
-Track/file names use:
+Track/file names and tags use, highest priority first:
 
-1. CD-TEXT when present (Linux/libcdio)
-2. `set artist` / `set album` session overrides
-3. Fallbacks: `Track NN`, `Unknown Artist`, `Unknown Album`
+1. `set artist` / `set album` session overrides (a per-track guest credit is kept)
+2. The selected MusicBrainz release (titles, artist credits, album, year)
+3. CD-TEXT when present (Linux/libcdio)
+4. Fallbacks: `Track NN`, `Unknown Artist`, `Unknown Album`
 
-No MusicBrainz lookup yet.
+When the disc is loaded, optigrab computes its MusicBrainz Disc ID and queries
+MusicBrainz once; the result is kept for the session and reused for cover art.
+If several releases match (reissues, regions), release `0` is used — run
+`lookup disc` to see them and `select release <n>` to switch. A failed lookup
+falls back to placeholders; a disc that isn't in MusicBrainz gets a
+`cdtoc/attach` link so you can add it. Disable automatic lookups with
+`set musicbrainz off` or `--no-musicbrainz`.
 
 ## Cover art
 
 Serial pipeline (no worker threads):
 
-1. **Download** cover (fail soft) — local path first, else MusicBrainz disc ID → Cover Art Archive (`curl`)
+1. **Download** cover (fail soft) — local path first, else MusicBrainz disc ID → Cover Art Archive (`curl`), trying the selected release first
 2. **Rip** all selected tracks (extract → encode)
 3. If cover exists: write **`cover.jpg`/`cover.png`** once in the album folder, then **embed** into each successful MP3 (ffmpeg attached picture)
 
@@ -215,15 +232,15 @@ If cover lookup fails and `covermissing=ask` (default), the REPL prompts
 `No cover art available. Continue rip without cover? [Y/n]`.  
 Non-TTY one-shot with `ask` aborts unless you pass `--cover-missing continue` or `abort`.
 
-Runtime: `curl` and `ffmpeg` on `PATH` for network cover + embed. Missing art never fails the rip.
+Runtime: `curl` and `ffmpeg` on `PATH` for MusicBrainz metadata, network cover + embed. Missing art never fails the rip.
 
-**Not yet:** year/genre tags, disc number — still on the roadmap under richer metadata.
+**Not yet:** genre tags, disc number — still on the roadmap under richer metadata.
 
 ## Roadmap
 
 Planned / nice-to-have (not scheduled):
 
-1. **MusicBrainz (or similar) metadata lookup** — disc ID → titles/artist/album (cover already uses disc ID for CAA)  
+1. ~~MusicBrainz metadata lookup~~ — **done** (`lookup disc`, `select release`)  
 2. ~~Clearer device errors~~ — **done**  
 3. ~~Progress while ripping~~ — **done**  
 4. **Cancel / interrupt a rip cleanly** (Ctrl-C mid-job, keep finished tracks)  

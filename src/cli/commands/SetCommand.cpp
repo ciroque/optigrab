@@ -181,6 +181,28 @@ public:
     [[nodiscard]] std::string name() const override { return "set coverart"; }
 };
 
+class SetMusicBrainzCommand : public Command {
+public:
+    void execute(Context& ctx, const std::vector<std::string>& tokens) override {
+        if (tokens.size() < 3) {
+            throw ParseError("Usage: set musicbrainz <on|off>");
+        }
+        const auto& v = tokens[2];
+        if (v == "on" || v == "true" || v == "1" || v == "yes") {
+            ctx.session.setMusicBrainzEnabled(true);
+            ctx.out << "MusicBrainz metadata lookup: on\n";
+            return;
+        }
+        if (v == "off" || v == "false" || v == "0" || v == "no") {
+            ctx.session.setMusicBrainzEnabled(false);
+            ctx.out << "MusicBrainz metadata lookup: off\n";
+            return;
+        }
+        throw ParseError("Usage: set musicbrainz <on|off>");
+    }
+    [[nodiscard]] std::string name() const override { return "set musicbrainz"; }
+};
+
 class SetLogLevelCommand : public Command {
 public:
     void execute(Context& ctx, const std::vector<std::string>& tokens) override {
@@ -280,6 +302,9 @@ std::unique_ptr<Command> makeSetExtractorCommand() {
 std::unique_ptr<Command> makeSetEncoderCommand() { return std::make_unique<SetEncoderCommand>(); }
 std::unique_ptr<Command> makeSetCoverCommand() { return std::make_unique<SetCoverCommand>(); }
 std::unique_ptr<Command> makeSetCoverArtCommand() { return std::make_unique<SetCoverArtCommand>(); }
+std::unique_ptr<Command> makeSetMusicBrainzCommand() {
+    return std::make_unique<SetMusicBrainzCommand>();
+}
 std::unique_ptr<Command> makeSetLogLevelCommand() { return std::make_unique<SetLogLevelCommand>(); }
 std::unique_ptr<Command> makeSetLogPathCommand() { return std::make_unique<SetLogPathCommand>(); }
 std::unique_ptr<Command> makeSetCoverMissingCommand() {
