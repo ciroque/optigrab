@@ -1,3 +1,4 @@
+#include "optigrab/adapters/cover/MusicBrainzCoverArtProvider.hpp"
 #include "optigrab/domain/Session.hpp"
 #include "optigrab/ports/CoverArtApplier.hpp"
 #include "optigrab/ports/CoverArtProvider.hpp"
@@ -132,4 +133,22 @@ TEST_CASE("RipService continues when cover missing", "[cover]") {
 
     REQUIRE(rip.ripTracks(session, {1})[0].success);
     REQUIRE(coverApp->sidecarCalls == 0);
+}
+
+TEST_CASE("musicbrainz cover provider fails soft when lookup errors", "[cover]") {
+    auto releases = std::make_shared<FakeReleaseLookup>();
+    releases->failWith = "MusicBrainz lookup failed: curl exit 6";
+    MusicBrainzCoverArtProvider provider(releases);
+    Session session;
+    REQUIRE_FALSE(provider.fetch(makeTwoTrackDisc(), session).has_value());
+    REQUIRE(releases->calls == 1);
+    REQUIRE(releases->lastDiscId.size() == 28);
+}
+
+TEST_CASE("musicbrainz cover provider returns nothing for unknown discs", "[cover]") {
+    auto releases = std::make_shared<FakeReleaseLookup>();
+    MusicBrainzCoverArtProvider provider(releases);
+    Session session;
+    REQUIRE_FALSE(provider.fetch(makeTwoTrackDisc(), session).has_value());
+    REQUIRE(releases->calls == 1);
 }

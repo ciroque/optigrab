@@ -7,6 +7,7 @@
 #include "optigrab/adapters/ffmpeg/FfmpegEncoder.hpp"
 #include "optigrab/adapters/ffmpeg/FfmpegExtractor.hpp"
 #include "optigrab/adapters/manual/ManualMetadataProvider.hpp"
+#include "optigrab/adapters/musicbrainz/MusicBrainzClient.hpp"
 #include "optigrab/domain/Errors.hpp"
 #include "optigrab/platform/Platform.hpp"
 
@@ -79,10 +80,11 @@ AppServices makeDefaultServices() {
     s.toc = std::make_shared<LibcdioTocReader>();
 #endif
     s.metadata = std::make_shared<ManualMetadataProvider>();
+    s.releases = std::make_shared<MusicBrainzClient>();
 
     std::vector<std::shared_ptr<CoverArtProvider>> coverProviders;
     coverProviders.push_back(std::make_shared<LocalCoverArtProvider>());
-    coverProviders.push_back(std::make_shared<MusicBrainzCoverArtProvider>());
+    coverProviders.push_back(std::make_shared<MusicBrainzCoverArtProvider>(s.releases));
     s.cover = std::make_shared<CompositeCoverArtProvider>(std::move(coverProviders));
     s.coverApplier = std::make_shared<FfmpegCoverArtApplier>();
     return s;

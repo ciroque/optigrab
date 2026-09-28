@@ -3,7 +3,9 @@
 #include "optigrab/ports/AudioEncoder.hpp"
 #include "optigrab/ports/AudioExtractor.hpp"
 #include "optigrab/ports/DriveEnumerator.hpp"
+#include "optigrab/domain/Errors.hpp"
 #include "optigrab/ports/MetadataProvider.hpp"
+#include "optigrab/ports/ReleaseLookup.hpp"
 #include "optigrab/ports/TocReader.hpp"
 
 #include <fstream>
@@ -80,6 +82,29 @@ public:
         }
     }
     std::string name() const override { return "fake-meta"; }
+};
+
+// Canned lookup result; counts calls. failWith set → throws LookupError.
+class FakeReleaseLookup : public ReleaseLookup {
+public:
+    explicit FakeReleaseLookup(std::vector<Release> releases = {})
+        : releases_(std::move(releases)) {}
+    DiscLookup lookup(const std::string& discId, Logger*) override {
+        ++calls;
+        lastDiscId = discId;
+        if (!failWith.empty()) {
+            throw LookupError(failWith);
+        }
+        return DiscLookup{discId, releases_};
+    }
+    std::string name() const override { return "fake-releases"; }
+
+    int calls{0};
+    std::string lastDiscId;
+    std::string failWith;
+
+private:
+    std::vector<Release> releases_;
 };
 
 inline DiscInfo makeTwoTrackDisc() {

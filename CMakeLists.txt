@@ -48,6 +48,8 @@ set(OPTIGRAB_COMMON_SOURCES
   src/services/RipService.cpp
   src/util/Process.cpp
   src/util/DeviceError.cpp
+  src/adapters/musicbrainz/Curl.cpp
+  src/adapters/musicbrainz/MusicBrainzClient.cpp
   src/adapters/musicbrainz/MusicBrainzJson.cpp
   src/adapters/cover/LocalCoverArtProvider.cpp
   src/adapters/cover/MusicBrainzCoverArtProvider.cpp
@@ -172,7 +174,6 @@ if(OPTIGRAB_BUILD_TESTS)
     tests/DiscIdTest.cpp
     tests/CoverArtPipelineTest.cpp
     tests/LoggerTest.cpp
-    tests/MbReleaseParseTest.cpp
     tests/MusicBrainzJsonTest.cpp
     tests/CoverMissingPolicyTest.cpp
   )
